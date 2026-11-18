@@ -62,13 +62,15 @@ O `.terraform.lock.hcl` gerado é commitado (fixa as versões do provider).
 
 Os serviços ECS precisam de imagens que ainda não existem, e o `chat-api` precisa de um valor no segredo para iniciar. Por isso o primeiro deploy é em etapas.
 
-### 3.1 Só o módulo `cluster` (cria os repositórios ECR)
+### 3.1 Rede, dados e cluster (cria os repositórios ECR)
 
 ```bash
-terraform -chdir=$ENV apply -target=module.cluster
+terraform -chdir=$ENV apply -target=module.network -target=module.data -target=module.cluster
 ```
 
-O `-target` traz junto as dependências do módulo: rede (VPC, NAT...) e o módulo `data` (tabelas, fila, recipiente do segredo). O aviso do Terraform sobre `-target` é esperado.
+Os três módulos vão juntos: só `-target=module.cluster` traria a VPC e as sub-redes privadas (dependências diretas), mas **não** o NAT, as rotas nem as regras dos security groups — as EC2 subiriam sem saída para a internet e não entrariam no cluster. O aviso do Terraform sobre `-target` é esperado.
+
+> IAM é global na conta. Por isso as roles e o instance profile levam a região no nome (`cafe-sa-east-1-...`) e não colidem com as roles criadas à mão em Ohio (`cafe-...`).
 
 ### 3.2 Build e push das imagens
 
