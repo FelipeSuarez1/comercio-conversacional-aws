@@ -2,6 +2,8 @@
 
 Alvo: conceito **B em todas as dimensões**, com alguns itens baratos de nível A onde o custo de implementação é baixo (marcados com **[A]**).
 
+Entrega em duas rodadas: primeiro a versão C, que usa esta mesma topologia no formato mais simples, e depois o upgrade para B. O que entra em cada rodada está em [planejamento.md](planejamento.md#estratégia-c-primeiro-depois-b).
+
 ## 1. Domínio e escopo do MVP
 
 **Loja de cafés especiais** ("Grão"): o cliente conversa com um vendedor de IA que recomenda cafés, consulta preço e estoque, aplica desconto por quantidade e registra o pedido.

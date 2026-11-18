@@ -2,25 +2,44 @@
 
 Baseado em [arquitetura.md](arquitetura.md). As fases estão em ordem de dependência; sem prazos porque as datas de entrega não foram informadas.
 
+## Estratégia: C primeiro, depois B
+
+Primeiro entregamos tudo o que o enunciado exige (seção 3) no formato mais simples: isso é o conceito C. Depois subimos para B **somando** peças, sem refazer nada. Por isso a topologia (2 serviços, ALB, SQS + DLQ, DynamoDB, Capacity Provider, 3 roles) já nasce igual à da proposta B: ela é obrigatória de qualquer forma.
+
+Itens marcados com **[B]** nas fases ficam para a segunda rodada.
+
+| Tema | Versão C (primeira entrega) | Upgrade para B |
+|---|---|---|
+| Interface | Swagger do FastAPI (`/docs`) para conversar | Página HTML simples |
+| Tools | `buscar_produtos`, `criar_pedido` | + `consultar_estoque`, `consultar_pedido` |
+| Worker | Consome a fila, baixa o estoque e confirma o pedido; DLQ configurada na fila | Escrita condicional (idempotência e estoque nunca negativo), heartbeat no health check |
+| Escala de tasks | Target tracking por **CPU** nos dois serviços | `chat-api` por requisições no ALB; `order-worker` por profundidade da fila |
+| Escala de instâncias | Capacity Provider com managed scaling | Igual, + managed draining e scale-in protection ajustados e demonstrados |
+| Logs | `awslogs`, texto simples | JSON com `conversa_id` / `pedido_id` (correlação) |
+| Alarmes | Um alarme por item exigido (tasks, cluster, ASG, ALB, fila, erros), notificação por e-mail | Limiares calibrados com teste de carga |
+| IAM | 3 tipos de role separados (instância, execução, tarefa), políticas por serviço | Políticas restritas a cada tabela, fila e segredo |
+| Imagens no Terraform | `build-and-push` rodado antes do `apply` | Build e push disparados pelo próprio `apply` |
+| Terraform | Um só ambiente em `envs/sa-east-1`, poucas variáveis | Módulos reutilizáveis e parametrização completa |
+
 ## Fase 0 — Preparação
 
 - [ ] Validar a proposta de arquitetura com o grupo (domínio, LLM, DynamoDB).
-- [ ] Confirmar com o professor: (a) uso de API de LLM externa; (b) se o bucket de estado do Terraform pode ser criado fora do código principal.
+- [ ] Confirmar com o professor: (a) uso de API de LLM externa; (b) se o bucket de estado do Terraform pode ser criado fora do código principal; (c) se um script de comandos da AWS CLI conta como etapa manual.
 - [ ] Conta AWS com budget e alarme de custo configurados.
-- [x] Repositório Git: `app/chat-api`, `app/order-worker`, `scripts/`, `infra/`, `docs/`. (falta publicar no GitHub)
-- [ ] Obter a chave da API do LLM.
+- [x] Repositório Git: `app/chat-api`, `app/order-worker`, `scripts/`, `infra/`, `docs/`, publicado como repositório privado no GitHub.
+- [ ] Obter a chave da API do LLM (local: `.env`; AWS: Secrets Manager).
 
 ## Fase 1 — Aplicação (local)
 
-- [ ] `chat-api`: FastAPI, `/health`, `/chat`, página HTML, loop de tool calling.
-- [ ] Tools: `buscar_produtos`, `consultar_estoque`, `criar_pedido`, `consultar_pedido`.
-- [ ] `order-worker`: consumo da fila, reserva condicional de estoque, idempotência, heartbeat.
-- [ ] Logs JSON com `conversa_id` / `pedido_id` / `request_id`.
+- [ ] `chat-api`: FastAPI, `/health`, `/chat`, loop de tool calling. Página HTML **[B]**.
+- [ ] Tools: `buscar_produtos`, `criar_pedido`. `consultar_estoque` e `consultar_pedido` **[B]**.
+- [ ] `order-worker`: consumo da fila, baixa de estoque, confirmação do pedido. Escrita condicional, idempotência e heartbeat **[B]**.
+- [ ] Logs JSON com `conversa_id` / `pedido_id` / `request_id` **[B]**.
 - [ ] Dockerfiles e `docker-compose` com DynamoDB Local e ElasticMQ (ou LocalStack).
 - [ ] Script de carga do catálogo (`seed`).
-- [ ] Testar: jornada completa, mensagem duplicada, estoque insuficiente, LLM indisponível.
+- [ ] Testar a jornada completa. Mensagem duplicada, estoque insuficiente e LLM indisponível **[B]**.
 
-**Pronto quando**: a jornada completa roda localmente com dados persistidos.
+**Pronto quando**: a conversa consulta o catálogo e grava um pedido que o worker confirma.
 
 ## Fase 2 — Etapa manual em Ohio (us-east-2)
 
