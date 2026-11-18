@@ -1,0 +1,4 @@
+# Copie para backend.hcl (que NÃO vai para o git) e preencha com a saída do bootstrap:
+#   terraform -chdir=../../bootstrap output
+bucket = "<nome-do-bucket-do-state>"
+region = "sa-east-1"

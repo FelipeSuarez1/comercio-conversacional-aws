@@ -24,3 +24,8 @@ Thumbs.db
 # Etapa manual (Ohio): IDs da sessao e JSONs renderizados (contem ID da conta)
 infra/ohio/.ids.env
 infra/ohio/.render/
+
+# Terraform: config do backend (nome do bucket com o ID da conta) e lock local.
+# O .terraform.lock.hcl NAO e ignorado: deve ser commitado.
+backend.hcl
+.terraform.tfstate.lock.info

@@ -1,0 +1,21 @@
+# Copie para terraform.tfvars (que NÃO vai para o git) e ajuste.
+
+regiao  = "sa-east-1"
+prefixo = "cafe"
+
+# Tag das imagens enviadas ao ECR (hash curto do commit: git rev-parse --short HEAD)
+imagem_tag = "<hash-do-commit>"
+
+# fake = respostas simuladas (smoke test e carga); real = chama o provedor de LLM
+llm_modo = "fake"
+
+# Obrigatórios só com llm_modo = "real". A chave NÃO entra aqui: vai direto para o
+# Secrets Manager com "aws secretsmanager put-secret-value" (ver docs/terraform.md).
+llm_base_url = "https://<provedor-compativel-openai>/v1/"
+model_id     = "<id-do-modelo>"
+
+# Capacidade (valores de Ohio)
+# tipo_instancia = "t3.small"
+# asg_min        = 2
+# asg_max        = 4
+# asg_desejado   = 2
