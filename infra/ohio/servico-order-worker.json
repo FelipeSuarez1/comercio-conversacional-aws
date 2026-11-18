@@ -1,0 +1,24 @@
+{
+  "cluster": "__PREFIXO__-cluster",
+  "serviceName": "__PREFIXO__-order-worker",
+  "taskDefinition": "__PREFIXO__-order-worker",
+  "desiredCount": 1,
+  "capacityProviderStrategy": [
+    { "capacityProvider": "__PREFIXO__-cp", "weight": 1, "base": 0 }
+  ],
+  "placementStrategy": [
+    { "type": "spread", "field": "attribute:ecs.availability-zone" },
+    { "type": "binpack", "field": "memory" }
+  ],
+  "deploymentConfiguration": {
+    "minimumHealthyPercent": 100,
+    "maximumPercent": 200,
+    "deploymentCircuitBreaker": { "enable": true, "rollback": true }
+  },
+  "enableECSManagedTags": true,
+  "propagateTags": "SERVICE",
+  "tags": [
+    { "key": "Projeto", "value": "__PREFIXO__" },
+    { "key": "Etapa", "value": "manual" }
+  ]
+}

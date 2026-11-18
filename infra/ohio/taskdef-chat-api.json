@@ -1,0 +1,46 @@
+{
+  "family": "__PREFIXO__-chat-api",
+  "networkMode": "bridge",
+  "requiresCompatibilities": ["EC2"],
+  "executionRoleArn": "arn:aws:iam::__CONTA__:role/__PREFIXO__-ecs-task-execution",
+  "taskRoleArn": "arn:aws:iam::__CONTA__:role/__PREFIXO__-chat-api-task",
+  "containerDefinitions": [
+    {
+      "name": "chat-api",
+      "image": "__IMAGEM_CHAT__",
+      "essential": true,
+      "cpu": 256,
+      "memoryReservation": 384,
+      "memory": 512,
+      "portMappings": [
+        { "containerPort": 8000, "hostPort": 0, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "AWS_REGION", "value": "__REGIAO__" },
+        { "name": "TABELA_PRODUTOS", "value": "__PREFIXO__-produtos" },
+        { "name": "TABELA_PEDIDOS", "value": "__PREFIXO__-pedidos" },
+        { "name": "TABELA_CONVERSAS", "value": "__PREFIXO__-conversas" },
+        { "name": "FILA_PEDIDOS_URL", "value": "__FILA_URL__" },
+        { "name": "LLM_MODO", "value": "__LLM_MODO__" },
+        { "name": "LLM_BASE_URL", "value": "__LLM_BASE_URL__" },
+        { "name": "MODEL_ID", "value": "__MODEL_ID__" },
+        { "name": "LOG_LEVEL", "value": "INFO" }
+      ],
+      "secrets": [
+        { "name": "LLM_API_KEY", "valueFrom": "__SEGREDO_ARN__" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/__PREFIXO__/chat-api",
+          "awslogs-region": "__REGIAO__",
+          "awslogs-stream-prefix": "chat-api"
+        }
+      }
+    }
+  ],
+  "tags": [
+    { "key": "Projeto", "value": "__PREFIXO__" },
+    { "key": "Etapa", "value": "manual" }
+  ]
+}

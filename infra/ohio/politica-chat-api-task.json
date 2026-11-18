@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "LerCatalogo",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan"],
+      "Resource": "arn:aws:dynamodb:__REGIAO__:__CONTA__:table/__PREFIXO__-produtos"
+    },
+    {
+      "Sid": "GravarELerConversasEPedidos",
+      "Effect": "Allow",
+      "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query"],
+      "Resource": [
+        "arn:aws:dynamodb:__REGIAO__:__CONTA__:table/__PREFIXO__-conversas",
+        "arn:aws:dynamodb:__REGIAO__:__CONTA__:table/__PREFIXO__-pedidos"
+      ]
+    },
+    {
+      "Sid": "EnfileirarPedido",
+      "Effect": "Allow",
+      "Action": "sqs:SendMessage",
+      "Resource": "arn:aws:sqs:__REGIAO__:__CONTA__:__PREFIXO__-pedidos"
+    }
+  ]
+}

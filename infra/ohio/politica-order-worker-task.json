@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConsumirFilaDePedidos",
+      "Effect": "Allow",
+      "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+      "Resource": "arn:aws:sqs:__REGIAO__:__CONTA__:__PREFIXO__-pedidos"
+    },
+    {
+      "Sid": "LerPedido",
+      "Effect": "Allow",
+      "Action": "dynamodb:GetItem",
+      "Resource": "arn:aws:dynamodb:__REGIAO__:__CONTA__:table/__PREFIXO__-pedidos"
+    },
+    {
+      "Sid": "BaixarEstoqueEAtualizarPedido",
+      "Effect": "Allow",
+      "Action": "dynamodb:UpdateItem",
+      "Resource": [
+        "arn:aws:dynamodb:__REGIAO__:__CONTA__:table/__PREFIXO__-produtos",
+        "arn:aws:dynamodb:__REGIAO__:__CONTA__:table/__PREFIXO__-pedidos"
+      ]
+    }
+  ]
+}

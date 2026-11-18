@@ -1,0 +1,9 @@
+{
+  "autoScalingGroupArn": "__ASG_ARN__",
+  "managedScaling": {
+    "status": "ENABLED",
+    "targetCapacity": 100
+  },
+  "managedTerminationProtection": "ENABLED",
+  "managedDraining": "ENABLED"
+}

@@ -20,3 +20,7 @@ __pycache__/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Etapa manual (Ohio): IDs da sessao e JSONs renderizados (contem ID da conta)
+infra/ohio/.ids.env
+infra/ohio/.render/

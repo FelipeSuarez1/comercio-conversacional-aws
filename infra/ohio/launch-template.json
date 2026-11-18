@@ -1,0 +1,37 @@
+{
+  "ImageId": "__AMI_ID__",
+  "InstanceType": "t3.small",
+  "IamInstanceProfile": { "Name": "__PREFIXO__-ecs-instance-profile" },
+  "NetworkInterfaces": [
+    {
+      "DeviceIndex": 0,
+      "AssociatePublicIpAddress": false,
+      "Groups": ["__SG_ECS__"],
+      "DeleteOnTermination": true
+    }
+  ],
+  "MetadataOptions": {
+    "HttpEndpoint": "enabled",
+    "HttpTokens": "required",
+    "HttpPutResponseHopLimit": 1
+  },
+  "UserData": "__USER_DATA_B64__",
+  "TagSpecifications": [
+    {
+      "ResourceType": "instance",
+      "Tags": [
+        { "Key": "Name", "Value": "__PREFIXO__-ecs" },
+        { "Key": "Projeto", "Value": "__PREFIXO__" },
+        { "Key": "Etapa", "Value": "manual" }
+      ]
+    },
+    {
+      "ResourceType": "volume",
+      "Tags": [
+        { "Key": "Name", "Value": "__PREFIXO__-ecs" },
+        { "Key": "Projeto", "Value": "__PREFIXO__" },
+        { "Key": "Etapa", "Value": "manual" }
+      ]
+    }
+  ]
+}

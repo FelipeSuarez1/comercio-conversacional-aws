@@ -1,0 +1,32 @@
+{
+  "cluster": "__PREFIXO__-cluster",
+  "serviceName": "__PREFIXO__-chat-api",
+  "taskDefinition": "__PREFIXO__-chat-api",
+  "desiredCount": 2,
+  "capacityProviderStrategy": [
+    { "capacityProvider": "__PREFIXO__-cp", "weight": 1, "base": 0 }
+  ],
+  "loadBalancers": [
+    {
+      "targetGroupArn": "__TG_ARN__",
+      "containerName": "chat-api",
+      "containerPort": 8000
+    }
+  ],
+  "healthCheckGracePeriodSeconds": 60,
+  "placementStrategy": [
+    { "type": "spread", "field": "attribute:ecs.availability-zone" },
+    { "type": "binpack", "field": "memory" }
+  ],
+  "deploymentConfiguration": {
+    "minimumHealthyPercent": 100,
+    "maximumPercent": 200,
+    "deploymentCircuitBreaker": { "enable": true, "rollback": true }
+  },
+  "enableECSManagedTags": true,
+  "propagateTags": "SERVICE",
+  "tags": [
+    { "key": "Projeto", "value": "__PREFIXO__" },
+    { "key": "Etapa", "value": "manual" }
+  ]
+}

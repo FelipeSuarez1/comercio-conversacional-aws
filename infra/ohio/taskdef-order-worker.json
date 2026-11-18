@@ -1,0 +1,43 @@
+{
+  "family": "__PREFIXO__-order-worker",
+  "networkMode": "bridge",
+  "requiresCompatibilities": ["EC2"],
+  "executionRoleArn": "arn:aws:iam::__CONTA__:role/__PREFIXO__-ecs-task-execution",
+  "taskRoleArn": "arn:aws:iam::__CONTA__:role/__PREFIXO__-order-worker-task",
+  "containerDefinitions": [
+    {
+      "name": "order-worker",
+      "image": "__IMAGEM_WORKER__",
+      "essential": true,
+      "cpu": 128,
+      "memoryReservation": 192,
+      "memory": 256,
+      "environment": [
+        { "name": "AWS_REGION", "value": "__REGIAO__" },
+        { "name": "TABELA_PRODUTOS", "value": "__PREFIXO__-produtos" },
+        { "name": "TABELA_PEDIDOS", "value": "__PREFIXO__-pedidos" },
+        { "name": "FILA_PEDIDOS_URL", "value": "__FILA_URL__" },
+        { "name": "LOG_LEVEL", "value": "INFO" }
+      ],
+      "healthCheck": {
+        "command": ["CMD", "python", "healthcheck.py"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/__PREFIXO__/order-worker",
+          "awslogs-region": "__REGIAO__",
+          "awslogs-stream-prefix": "order-worker"
+        }
+      }
+    }
+  ],
+  "tags": [
+    { "key": "Projeto", "value": "__PREFIXO__" },
+    { "key": "Etapa", "value": "manual" }
+  ]
+}

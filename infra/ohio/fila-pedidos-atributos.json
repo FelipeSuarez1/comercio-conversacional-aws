@@ -1,0 +1,5 @@
+{
+  "VisibilityTimeout": "60",
+  "ReceiveMessageWaitTimeSeconds": "20",
+  "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:__REGIAO__:__CONTA__:__PREFIXO__-pedidos-dlq\",\"maxReceiveCount\":\"3\"}"
+}
