@@ -5,6 +5,14 @@
 # para instâncias e volumes, então são repassadas explicitamente.
 data "aws_default_tags" "atual" {}
 
+# IAM é global na conta: o nome leva a região para não colidir com outra etapa
+# do projeto (ex.: as roles criadas à mão em Ohio com o mesmo prefixo).
+data "aws_region" "atual" {}
+
+locals {
+  prefixo_iam = "${var.prefixo}-${data.aws_region.atual.region}"
+}
+
 # ---------------------------------------------------------------- IAM
 
 data "aws_iam_policy_document" "confianca_ec2" {
@@ -33,7 +41,7 @@ data "aws_iam_policy_document" "confianca_ecs_tasks" {
 
 # Role da instância: agente do ECS registrar a instância; SSM para acesso sem SSH
 resource "aws_iam_role" "instancia" {
-  name               = "${var.prefixo}-ecs-instance-role"
+  name               = "${local.prefixo_iam}-ecs-instance-role"
   description        = "Instancias EC2 do cluster ECS"
   assume_role_policy = data.aws_iam_policy_document.confianca_ec2.json
 }
@@ -49,13 +57,13 @@ resource "aws_iam_role_policy_attachment" "instancia" {
 }
 
 resource "aws_iam_instance_profile" "instancia" {
-  name = "${var.prefixo}-ecs-instance-profile"
+  name = "${local.prefixo_iam}-ecs-instance-profile"
   role = aws_iam_role.instancia.name
 }
 
 # Role de execução das tasks: ECR, logs e só o segredo do LLM
 resource "aws_iam_role" "execucao" {
-  name               = "${var.prefixo}-ecs-task-execution"
+  name               = "${local.prefixo_iam}-ecs-task-execution"
   description        = "Execucao das tasks: ECR, logs e segredo do LLM"
   assume_role_policy = data.aws_iam_policy_document.confianca_ecs_tasks.json
 }

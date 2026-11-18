@@ -1,5 +1,7 @@
 locals {
   nome_completo = "${var.prefixo}-${var.nome}"
+  # IAM é global na conta: o nome da task role leva a região
+  nome_iam = "${var.prefixo}-${var.regiao}-${var.nome}"
 
   # Listas em ordem alfabética para o JSON da task definition não mudar à toa
   environment = [for k in sort(keys(var.ambiente)) : { name = k, value = var.ambiente[k] }]
@@ -64,7 +66,7 @@ data "aws_iam_policy_document" "confianca_ecs_tasks" {
 }
 
 resource "aws_iam_role" "task" {
-  name               = "${local.nome_completo}-task"
+  name               = "${local.nome_iam}-task"
   description        = "Permissoes do codigo do ${var.nome}"
   assume_role_policy = data.aws_iam_policy_document.confianca_ecs_tasks.json
 }
