@@ -27,7 +27,7 @@ Itens marcados com **[B]** nas fases ficam para a segunda rodada.
 - [ ] Confirmar com o professor: (a) uso de API de LLM externa; (b) se o bucket de estado do Terraform pode ser criado fora do código principal; (c) se um script de comandos da AWS CLI conta como etapa manual.
 - [ ] Conta AWS com budget e alarme de custo configurados.
 - [x] Repositório Git: `app/chat-api`, `app/order-worker`, `scripts/`, `infra/`, `docs/`, publicado como repositório privado no GitHub.
-- [ ] Obter a chave da API do LLM (local: `.env`; AWS: Secrets Manager).
+- [x] Obter a chave da API do LLM (local: `.env`; AWS: Secrets Manager).
 
 ## Fase 1 — Aplicação (local)
 
@@ -45,18 +45,18 @@ Itens marcados com **[B]** nas fases ficam para a segunda rodada.
 
 Console e AWS CLI apenas. **Anotar cada recurso criado** — a relação é um entregável e vira o checklist do Terraform.
 
-1. [ ] Rede: VPC, 4 sub-redes, IGW, NAT, tabelas de rotas, endpoints de S3 e DynamoDB.
-2. [ ] Security groups `alb-sg` e `ecs-sg`.
-3. [ ] IAM: role da instância, role de execução, uma task role por serviço.
-4. [ ] Secrets Manager: chave do LLM.
-5. [ ] DynamoDB: 3 tabelas + seed.
-6. [ ] SQS: fila de pedidos + DLQ com redrive policy.
-7. [ ] ECR: 2 repositórios; build e push das imagens.
-8. [ ] ECS: cluster, Launch Template, ASG, Capacity Provider.
-9. [ ] ALB, target group e listener.
-10. [ ] Task definitions e os 2 serviços.
-11. [ ] Auto scaling dos serviços.
-12. [ ] Log groups, Container Insights, alarmes, tópico SNS.
+1. [x] Rede: VPC, 4 sub-redes, IGW, NAT, tabelas de rotas, endpoints de S3 e DynamoDB.
+2. [x] Security groups `alb-sg` e `ecs-sg`.
+3. [x] IAM: role da instância, role de execução, uma task role por serviço.
+4. [x] Secrets Manager: chave do LLM.
+5. [x] DynamoDB: 3 tabelas + seed.
+6. [x] SQS: fila de pedidos + DLQ com redrive policy.
+7. [x] ECR: 2 repositórios; build e push das imagens.
+8. [x] ECS: cluster, Launch Template, ASG, Capacity Provider.
+9. [x] ALB, target group e listener.
+10. [x] Task definitions e os 2 serviços.
+11. [x] Auto scaling dos serviços.
+12. [x] Log groups, Container Insights, alarmes, tópico SNS.
 
 **Entregáveis**: aplicação no ar, diagrama, relação de recursos, demonstração.
 
