@@ -13,10 +13,10 @@ Itens marcados com **[B]** nas fases ficam para a segunda rodada.
 | Interface | Swagger do FastAPI (`/docs`) para conversar | Página HTML simples |
 | Tools | `buscar_produtos`, `criar_pedido` | + `consultar_estoque`, `consultar_pedido` |
 | Worker | Consome a fila, baixa o estoque com escrita condicional (idempotente, estoque nunca negativo), heartbeat no health check; DLQ configurada na fila | Já entregue na versão C: era barato fazer certo desde o início |
-| Escala de tasks | Target tracking por **CPU** nos dois serviços | `chat-api` por requisições no ALB; `order-worker` por profundidade da fila |
+| Escala de tasks | `chat-api` por **CPU** (60%); `order-worker` por mensagens na fila por task (trocado de CPU após o ensaio: a CPU do worker não sobe com fila cheia) | `chat-api` por requisições no ALB; worker com alvo menor ou step scaling para reagir mais rápido |
 | Escala de instâncias | Capacity Provider com managed scaling | Igual, + managed draining e scale-in protection ajustados e demonstrados |
 | Logs | `awslogs`, texto simples | JSON com `conversa_id` / `pedido_id` (correlação) |
-| Alarmes | Um alarme por item exigido (tasks, cluster, ASG, ALB, fila, erros), notificação por e-mail | Limiares calibrados com teste de carga |
+| Alarmes | Um alarme por item exigido (tasks, cluster, ASG, ALB, fila, erros), ação em tópico SNS sem assinatura de e-mail (decisão do grupo) | Assinatura de e-mail e limiares calibrados com teste de carga |
 | IAM | 3 tipos de role separados (instância, execução, tarefa), políticas por serviço | Políticas restritas a cada tabela, fila e segredo |
 | Imagens no Terraform | `build-and-push` rodado antes do `apply` | Build e push disparados pelo próprio `apply` |
 | Terraform | Um só ambiente em `envs/sa-east-1`, poucas variáveis | Módulos reutilizáveis e parametrização completa |
@@ -74,7 +74,7 @@ Console e AWS CLI apenas. **Anotar cada recurso criado** — a relação é um e
 | DLQ | Enviar mensagem malformada | 3 tentativas, mensagem na DLQ, alarme disparado |
 
 - [x] Escrever os scripts de carga em `scripts/`.
-- [ ] Ensaiar uma vez e cronometrar (o scale-out de EC2 leva alguns minutos).
+- [x] Ensaiar uma vez e cronometrar (o scale-out de EC2 leva alguns minutos). Ensaiado em Ohio em 2026-11-18.
 - [ ] Capturar prints/gráficos do CloudWatch como evidência.
 
 ## Fase 4 — Terraform em São Paulo (sa-east-1)
@@ -87,18 +87,22 @@ infra/
   modules/
     network/        # VPC, sub-redes, rotas, NAT, endpoints, SGs
     data/           # DynamoDB, SQS + DLQ, Secrets Manager (só o recipiente)
+    alb/            # ALB, target group, listener
     cluster/        # ECR, cluster, Launch Template, ASG, Capacity Provider, IAM
     service/        # task definition, serviço, auto scaling, logs (reutilizado 2x)
     observability/  # alarmes, SNS
   envs/sa-east-1/   # main.tf, backend.tf, terraform.tfvars
 ```
 
-- [ ] Backend S3 com lock nativo (`use_lockfile`).
-- [ ] Região, CIDRs, tipo de instância, limites de escala e tags como variáveis.
-- [ ] AZs via `data "aws_availability_zones"`; AMI via `data "aws_ssm_parameter"`.
-- [ ] Valor do segredo fora do Terraform: variável `sensitive` vinda de `TF_VAR_...`, ou `put-secret-value` documentado.
-- [ ] Imagens: `terraform_data` com `local-exec` chamando o `build-and-push`, e os serviços dependendo dele — assim um único `apply` sobe tudo.
-- [ ] `force_delete` nos ECRs e ordem de dependência correta entre ASG e Capacity Provider para o `destroy` funcionar de primeira.
+- [x] Bootstrap do bucket do state (`infra/bootstrap`: versionado, criptografado, sem acesso público).
+- [x] Backend S3 com lock nativo (`use_lockfile`).
+- [x] Módulos `network`, `alb`, `data`, `cluster`, `service` (usado 2x) e `observability`; ambiente em `envs/sa-east-1`.
+- [x] Região, CIDRs, tipo de instância, limites do ASG e tags como variáveis (limites das tasks ficam fixos em `envs/sa-east-1/main.tf`).
+- [x] AZs via `data "aws_availability_zones"`; AMI via `data "aws_ssm_parameter"`.
+- [x] Valor do segredo fora do Terraform: `put-secret-value` documentado em [terraform.md](terraform.md).
+- [x] `apply` em `sa-east-1` com a aplicação no ar e `scripts/smoke-test.sh` passando contra o ALB. Relação de recursos em [sa-east-1-recursos.md](sa-east-1-recursos.md).
+- [ ] Imagens: `terraform_data` com `local-exec` chamando o `build-and-push`, e os serviços dependendo dele — assim um único `apply` sobe tudo **[B]**.
+- [ ] `force_delete` nos ECRs e ordem de dependência correta entre ASG e Capacity Provider para o `destroy` funcionar de primeira (já no código; falta confirmar com um `destroy`).
 - [ ] Buscar por `us-east-2` no repositório inteiro: não pode haver nenhuma ocorrência.
 - [ ] Ciclo completo `apply` → demonstração → `destroy` → `apply` de novo, em conta limpa.
 

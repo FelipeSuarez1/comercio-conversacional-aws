@@ -8,7 +8,7 @@ Rode o seed depois da demonstração para restaurar o estoque.
 
 Uso (credenciais da AWS CLI):
     TABELA_PEDIDOS=cafe-pedidos TABELA_PRODUTOS=cafe-produtos \
-    FILA_PEDIDOS_URL=<url da fila> AWS_REGION=us-east-2 \
+    FILA_PEDIDOS_URL=<url da fila> AWS_REGION=<regiao> \
     python scripts/enfileirar-pedidos.py 6000
 """
 

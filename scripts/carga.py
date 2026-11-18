@@ -24,7 +24,7 @@ def percentil(valores, p):
 
 def main():
     parser = argparse.ArgumentParser(description="Gerador de carga HTTP")
-    parser.add_argument("url_base", help="ex.: http://cafe-alb-123.us-east-2.elb.amazonaws.com")
+    parser.add_argument("url_base", help="ex.: http://cafe-alb-123.<regiao>.elb.amazonaws.com")
     parser.add_argument("--caminho", default="/produtos")
     parser.add_argument("--duracao", type=int, default=300, help="segundos")
     parser.add_argument("--concorrencia", type=int, default=40, help="requisições simultâneas")
