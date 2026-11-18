@@ -665,33 +665,25 @@ aws logs tail /ecs/$PREFIXO/chat-api --since 10m
 
 ---
 
-## Passo 11 — Auto scaling das tasks (versão C: CPU)
+## Passo 11 — Auto scaling das tasks
 
-Objetivo: o **primeiro nível de elasticidade**. O Application Auto Scaling ajusta o `desiredCount` de cada serviço para manter a CPU média em 60%. Se as tasks novas não couberem nas instâncias, ficam em `PROVISIONING` e o Capacity Provider do passo 8 sobe mais EC2. (A CPU é medida em relação às 256/128 unidades reservadas por task.)
+Objetivo: o **primeiro nível de elasticidade**. O Application Auto Scaling ajusta o `desiredCount` de cada serviço. Se as tasks novas não couberem nas instâncias, ficam em `PROVISIONING` e o Capacity Provider do passo 8 sobe mais EC2.
+
+- **chat-api** (2 a 8 tasks): target tracking em CPU média de 60% (medida em relação às 256 unidades reservadas por task). O máximo de 8 foi escolhido de propósito: 8 × 384 MiB + 4 × 192 MiB = 3840 MiB, mais do que as 2 instâncias oferecem (~3826 MiB), então a carga máxima obriga o Capacity Provider a subir a 3ª EC2.
+- **order-worker** (1 a 4 tasks): target tracking em **mensagens visíveis na fila por task** (alvo 100), com uma métrica calculada (`visiveis / tasks`) que junta `ApproximateNumberOfMessagesVisible` do SQS e `RunningTaskCount` do Container Insights. CPU não serve para o worker: ele passa quase todo o tempo esperando o long polling e a CPU fica baixa mesmo com fila cheia.
 
 ```bash
-# chat-api: 2 a 6 tasks
-aws application-autoscaling register-scalable-target --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/$PREFIXO-cluster/$PREFIXO-chat-api --min-capacity 2 --max-capacity 6
-aws application-autoscaling put-scaling-policy --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/$PREFIXO-cluster/$PREFIXO-chat-api \
-  --policy-name $PREFIXO-chat-api-cpu60 --policy-type TargetTrackingScaling \
-  --target-tracking-scaling-policy-configuration file://infra/ohio/escala-cpu-60.json \
-  --query PolicyARN --output text
+# chat-api: 2 a 8 tasks, CPU 60%
+aws application-autoscaling register-scalable-target --service-namespace ecs   --scalable-dimension ecs:service:DesiredCount   --resource-id service/$PREFIXO-cluster/$PREFIXO-chat-api --min-capacity 2 --max-capacity 8
+aws application-autoscaling put-scaling-policy --service-namespace ecs   --scalable-dimension ecs:service:DesiredCount   --resource-id service/$PREFIXO-cluster/$PREFIXO-chat-api   --policy-name $PREFIXO-chat-api-cpu60 --policy-type TargetTrackingScaling   --target-tracking-scaling-policy-configuration file://infra/ohio/escala-cpu-60.json   --query PolicyARN --output text
 
-# order-worker: 1 a 4 tasks
-aws application-autoscaling register-scalable-target --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/$PREFIXO-cluster/$PREFIXO-order-worker --min-capacity 1 --max-capacity 4
-aws application-autoscaling put-scaling-policy --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/$PREFIXO-cluster/$PREFIXO-order-worker \
-  --policy-name $PREFIXO-order-worker-cpu60 --policy-type TargetTrackingScaling \
-  --target-tracking-scaling-policy-configuration file://infra/ohio/escala-cpu-60.json \
-  --query PolicyARN --output text
+# order-worker: 1 a 4 tasks, 100 mensagens na fila por task
+renderizar escala-worker-fila.json
+aws application-autoscaling register-scalable-target --service-namespace ecs   --scalable-dimension ecs:service:DesiredCount   --resource-id service/$PREFIXO-cluster/$PREFIXO-order-worker --min-capacity 1 --max-capacity 4
+aws application-autoscaling put-scaling-policy --service-namespace ecs   --scalable-dimension ecs:service:DesiredCount   --resource-id service/$PREFIXO-cluster/$PREFIXO-order-worker   --policy-name $PREFIXO-order-worker-fila --policy-type TargetTrackingScaling   --target-tracking-scaling-policy-configuration file://infra/ohio/.render/escala-worker-fila.json   --query PolicyARN --output text
 ```
+
+As métricas do SQS chegam ao CloudWatch com 1 a 5 minutos de atraso, então o worker reage à fila com esse atraso (no ensaio, 1 task drenou 6000 mensagens em ~3 min, e as tasks extras subiram quando a fila já estava quase vazia). Em produção isso se resolve com um alvo menor ou com step scaling; para a demonstração, mostre o histórico de atividades.
 
 Nenhum ID novo para gravar (identificados pelo `resource-id`). A política cria sozinha dois alarmes `TargetTracking-service/...` (alta e baixa); não os apague.
 
@@ -890,10 +882,25 @@ aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $PREFIXO
   --query 'AutoScalingGroups[0].[DesiredCapacity,length(Instances)]' --output text
 ```
 
-**Escalar tasks manualmente** (se não couber, tasks em `PROVISIONING` e o Capacity Provider sobe EC2). O auto scaling por CPU traz o número de volta ao mínimo depois de alguns minutos sem carga.
+**Escala automática do chat-api e das EC2** (`scripts/carga.py`, só biblioteca padrão; bate em `GET /produtos`, que não chama o LLM). Duas cargas em paralelo (60 + 150 conexões, 10 min) levaram, no ensaio, o chat de 2 → 8 tasks; a 7ª ficou `PROVISIONING` e o ASG subiu de 2 → 3 instâncias. Sem carga, tudo volta ao base em ~15 min (scale-in das tasks, managed draining e término da EC2 extra).
 
 ```bash
-aws ecs update-service --cluster $PREFIXO-cluster --service $PREFIXO-chat-api --desired-count 6 --query 'service.desiredCount'
+ALB=http://$(aws elbv2 describe-load-balancers --names $PREFIXO-alb --query 'LoadBalancers[0].DNSName' --output text)
+python scripts/carga.py $ALB --duracao 600 --concorrencia 60 &
+python scripts/carga.py $ALB --duracao 600 --concorrencia 150
+```
+
+**Escala do order-worker pela fila** (`scripts/enfileirar-pedidos.py`, precisa de `boto3`): grava N pedidos `PENDENTE` e publica todos na fila, sem passar pelo LLM. Depois da demo, rode o seed de novo para restaurar o estoque.
+
+```bash
+TABELA_PEDIDOS=$PREFIXO-pedidos TABELA_PRODUTOS=$PREFIXO-produtos FILA_PEDIDOS_URL=$FILA_URL   python scripts/enfileirar-pedidos.py 6000
+aws application-autoscaling describe-scaling-activities --service-namespace ecs   --resource-id service/$PREFIXO-cluster/$PREFIXO-order-worker --max-items 4   --query 'ScalingActivities[].[StartTime,StatusCode,Description]' --output table
+```
+
+**Escalar tasks manualmente** (alternativa rápida à carga; se não couber, tasks em `PROVISIONING` e o Capacity Provider sobe EC2). O auto scaling traz o número de volta ao mínimo depois de alguns minutos sem carga.
+
+```bash
+aws ecs update-service --cluster $PREFIXO-cluster --service $PREFIXO-chat-api --desired-count 8 --query 'service.desiredCount'
 aws ecs update-service --cluster $PREFIXO-cluster --service $PREFIXO-order-worker --desired-count 4 --query 'service.desiredCount'
 aws autoscaling describe-scaling-activities --auto-scaling-group-name $PREFIXO-asg --max-items 3 \
   --query 'Activities[].[StartTime,StatusCode,Description]' --output table
@@ -953,7 +960,7 @@ ALARMES=$(aws cloudwatch describe-alarms --alarm-name-prefix $PREFIXO- --query '
 aws cloudwatch disable-alarm-actions --alarm-names $ALARMES
 
 # Tasks a zero (o mínimo do auto scaling também, senão ele traz as tasks de volta)
-for S in chat-api:6 order-worker:4; do
+for S in chat-api:8 order-worker:4; do
   aws application-autoscaling register-scalable-target --service-namespace ecs \
     --scalable-dimension ecs:service:DesiredCount --resource-id service/$PREFIXO-cluster/$PREFIXO-${S%%:*} \
     --min-capacity 0 --max-capacity ${S##*:}
@@ -978,8 +985,13 @@ Para religar:
 
 ```bash
 aws autoscaling update-auto-scaling-group --auto-scaling-group-name $PREFIXO-asg --min-size 2 --desired-capacity 2
-aws autoscaling wait group-in-service --auto-scaling-group-names $PREFIXO-asg
-for S in chat-api:2:6 order-worker:1:4; do
+# Espera as 2 instâncias se registrarem no cluster (a CLI não tem "wait" para Auto Scaling)
+for i in $(seq 1 30); do
+  N=$(aws ecs describe-clusters --clusters $PREFIXO-cluster \
+    --query 'clusters[0].registeredContainerInstancesCount' --output text)
+  [ "$N" -ge 2 ] && break; sleep 10
+done; echo "Instâncias no cluster: $N"
+for S in chat-api:2:8 order-worker:1:4; do
   IFS=: read NOME MIN MAX <<< "$S"
   aws application-autoscaling register-scalable-target --service-namespace ecs \
     --scalable-dimension ecs:service:DesiredCount --resource-id service/$PREFIXO-cluster/$PREFIXO-$NOME \

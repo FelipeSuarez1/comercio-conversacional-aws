@@ -63,8 +63,8 @@ flowchart LR
 | Responsabilidade | Front, endpoint `/chat`, orquestra o LLM e as tools, grava conversa e pedido `PENDENTE` | Consome a fila, reserva estoque, confirma ou rejeita o pedido |
 | Entrada | ALB (síncrono) | SQS (assíncrono) |
 | Perfil de carga | I/O intenso, latência dominada pelo LLM, muitas conexões abertas | Rajadas curtas conforme a fila |
-| Métrica de escala | `ALBRequestCountPerTarget` (target tracking) | Mensagens visíveis na fila (target tracking, alvo ≈ 10 por task) |
-| Tasks min / max | 2 / 6 | 1 / 4 |
+| Métrica de escala | CPU média 60% (target tracking) | Mensagens visíveis na fila por task (target tracking, alvo 100) |
+| Tasks min / max | 2 / 8 | 1 / 4 |
 | Health check | `GET /health` no target group | `healthCheck` do container (heartbeat do loop de consumo) |
 
 Justificativa da decomposição:
@@ -131,7 +131,7 @@ Reservas por task:
 | `chat-api` | 256 | 384 / 512 MiB |
 | `order-worker` | 128 | 192 / 256 MiB |
 
-Conta de capacidade: uma `t3.small` comporta cerca de 3 tasks `chat-api` + 2 `order-worker` (limitado por memória). Com 2 instâncias, o estado base (2 + 1 tasks) usa ~25% da memória reservável; o máximo (6 + 4 tasks) pede ~3100 MiB, forçando o Capacity Provider a subir para 3–4 instâncias. É exatamente esse salto que demonstra o segundo nível de elasticidade.
+Conta de capacidade: uma `t3.small` comporta cerca de 3 tasks `chat-api` + 2 `order-worker` (limitado por memória). Com 2 instâncias, o estado base (2 + 1 tasks) usa ~25% da memória reservável; o máximo (8 + 4 tasks) pede 3840 MiB, mais que as ~3826 MiB de 2 instâncias, forçando o Capacity Provider a subir para 3–4 instâncias. É exatamente esse salto que demonstra o segundo nível de elasticidade.
 
 `spread` por AZ garante que as 2 tasks do chat fiquem em instâncias diferentes (disponibilidade); `binpack` concentra o restante e libera instâncias inteiras para o scale-in.
 

@@ -65,15 +65,15 @@ Console e AWS CLI apenas. **Anotar cada recurso criado** — a relação é um e
 | Demonstração | Como provocar | O que mostrar |
 |---|---|---|
 | Jornada do MVP | Conversa no navegador | Pedido no DynamoDB, estoque decrementado |
-| Escala de tasks (chat) | Carga HTTP com `hey` ou `k6` | Tasks subindo de 2 para N |
-| Escala de tasks (worker) | Script que enfileira centenas de pedidos | Fila enchendo, workers subindo, fila esvaziando |
+| Escala de tasks (chat) | Carga HTTP com `scripts/carga.py` | Tasks subindo de 2 para até 8 |
+| Escala de tasks (worker) | `scripts/enfileirar-pedidos.py` (milhares de pedidos) | Fila enchendo, workers subindo, fila esvaziando |
 | Escala de instâncias | Consequência das duas anteriores | Tasks em `PROVISIONING`, ASG subindo de 2 para 3–4 |
 | Scale-in e drenagem | Parar a carga | Instância em `DRAINING`, tasks realocadas, instância removida |
 | Task defeituosa | `aws ecs stop-task` ou endpoint que derruba o processo | ECS repõe a task, ALB segue respondendo |
 | Instância perdida | Terminar uma EC2 pelo console | ASG repõe, tasks voltam, dados intactos |
 | DLQ | Enviar mensagem malformada | 3 tentativas, mensagem na DLQ, alarme disparado |
 
-- [ ] Escrever os scripts de carga em `scripts/`.
+- [x] Escrever os scripts de carga em `scripts/`.
 - [ ] Ensaiar uma vez e cronometrar (o scale-out de EC2 leva alguns minutos).
 - [ ] Capturar prints/gráficos do CloudWatch como evidência.
 
