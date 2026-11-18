@@ -1,0 +1,80 @@
+# Ambiente local: emuladores de DynamoDB e SQS + os dois serviços da aplicação.
+# Nomes e variáveis seguem docs/contratos.md.
+#
+#   cp .env.example .env
+#   docker compose up --build
+
+# Variáveis comuns a quem fala com os emuladores (reaproveitadas com <<: *aws-local).
+# As credenciais são falsas: os emuladores aceitam qualquer valor.
+x-aws-local: &aws-local
+  AWS_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: local
+  AWS_SECRET_ACCESS_KEY: local
+  DYNAMODB_ENDPOINT_URL: http://dynamodb:8000
+  TABELA_PRODUTOS: produtos
+  TABELA_PEDIDOS: pedidos
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+services:
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    # Em memória: cada `up` começa do zero e o seed recria tudo. Assim o estoque
+    # volta ao valor inicial e o smoke test é sempre repetível.
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    ports:
+      - "8001:8000"
+
+  sqs:
+    image: softwaremill/elasticmq-native:latest
+    volumes:
+      - ./scripts/local/elasticmq.conf:/opt/elasticmq.conf:ro
+    ports:
+      - "9324:9324"
+
+  # Execução única: cria as tabelas e grava o catálogo, depois termina.
+  seed:
+    image: python:3.12-slim
+    working_dir: /scripts
+    volumes:
+      - ./scripts:/scripts:ro
+    command: >
+      sh -c "pip install --quiet --disable-pip-version-check --root-user-action=ignore -r requirements.txt
+      && python seed.py --criar-tabelas"
+    environment:
+      <<: *aws-local
+      TABELA_CONVERSAS: conversas
+    depends_on:
+      - dynamodb
+
+  chat-api:
+    build: ./app/chat-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *aws-local
+      TABELA_CONVERSAS: conversas
+      SQS_ENDPOINT_URL: http://sqs:9324
+      FILA_PEDIDOS_URL: http://sqs:9324/000000000000/pedidos
+      # LLM_API_KEY, LLM_BASE_URL e MODEL_ID chegam pelo env_file (.env)
+      LLM_MODO: ${LLM_MODO:-fake}
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      sqs:
+        condition: service_started
+
+  order-worker:
+    build: ./app/order-worker
+    # Sem env_file: o worker não precisa (nem deve receber) a chave do LLM
+    environment:
+      <<: *aws-local
+      SQS_ENDPOINT_URL: http://sqs:9324
+      FILA_PEDIDOS_URL: http://sqs:9324/000000000000/pedidos
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      sqs:
+        condition: service_started

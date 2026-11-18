@@ -142,7 +142,7 @@ Conta de capacidade: uma `t3.small` comporta cerca de 3 tasks `chat-api` + 2 `or
 | Instância EC2 | `AmazonEC2ContainerServiceforEC2Role` + `AmazonSSMManagedInstanceCore` |
 | Execução das tasks | Pull no ECR, escrita em logs, leitura **apenas** do segredo da chave do LLM |
 | Task `chat-api` | Leitura em `produtos`; leitura/escrita em `conversas` e `pedidos`; `sqs:SendMessage` na fila de pedidos |
-| Task `order-worker` | `sqs:ReceiveMessage/DeleteMessage` na fila; `dynamodb:UpdateItem` em `produtos` e `pedidos` |
+| Task `order-worker` | `sqs:ReceiveMessage/DeleteMessage` na fila; `dynamodb:GetItem` em `pedidos`; `dynamodb:UpdateItem` em `produtos` e `pedidos` (cobre o `TransactWriteItems`) |
 
 Chave do LLM no Secrets Manager, injetada pelo ECS no campo `secrets` da task definition — nunca em código, imagem ou `.tfvars`.
 

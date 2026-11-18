@@ -12,7 +12,7 @@ Itens marcados com **[B]** nas fases ficam para a segunda rodada.
 |---|---|---|
 | Interface | Swagger do FastAPI (`/docs`) para conversar | Página HTML simples |
 | Tools | `buscar_produtos`, `criar_pedido` | + `consultar_estoque`, `consultar_pedido` |
-| Worker | Consome a fila, baixa o estoque e confirma o pedido; DLQ configurada na fila | Escrita condicional (idempotência e estoque nunca negativo), heartbeat no health check |
+| Worker | Consome a fila, baixa o estoque com escrita condicional (idempotente, estoque nunca negativo), heartbeat no health check; DLQ configurada na fila | Já entregue na versão C: era barato fazer certo desde o início |
 | Escala de tasks | Target tracking por **CPU** nos dois serviços | `chat-api` por requisições no ALB; `order-worker` por profundidade da fila |
 | Escala de instâncias | Capacity Provider com managed scaling | Igual, + managed draining e scale-in protection ajustados e demonstrados |
 | Logs | `awslogs`, texto simples | JSON com `conversa_id` / `pedido_id` (correlação) |
@@ -31,13 +31,13 @@ Itens marcados com **[B]** nas fases ficam para a segunda rodada.
 
 ## Fase 1 — Aplicação (local)
 
-- [ ] `chat-api`: FastAPI, `/health`, `/chat`, loop de tool calling. Página HTML **[B]**.
-- [ ] Tools: `buscar_produtos`, `criar_pedido`. `consultar_estoque` e `consultar_pedido` **[B]**.
-- [ ] `order-worker`: consumo da fila, baixa de estoque, confirmação do pedido. Escrita condicional, idempotência e heartbeat **[B]**.
+- [x] `chat-api`: FastAPI, `/health`, `/chat`, loop de tool calling. Página HTML **[B]**.
+- [x] Tools: `buscar_produtos`, `criar_pedido`. `consultar_estoque` e `consultar_pedido` **[B]**.
+- [x] `order-worker`: consumo da fila, baixa de estoque, confirmação do pedido, escrita condicional, idempotência e heartbeat (23 testes unitários).
 - [ ] Logs JSON com `conversa_id` / `pedido_id` / `request_id` **[B]**.
-- [ ] Dockerfiles e `docker-compose` com DynamoDB Local e ElasticMQ (ou LocalStack).
-- [ ] Script de carga do catálogo (`seed`).
-- [ ] Testar a jornada completa. Mensagem duplicada, estoque insuficiente e LLM indisponível **[B]**.
+- [x] Dockerfiles e `docker-compose` com DynamoDB Local e ElasticMQ (ou LocalStack).
+- [x] Script de carga do catálogo (`seed`).
+- [x] Testar a jornada completa e estoque insuficiente (`scripts/smoke-test.sh`); mensagem duplicada (testes do worker); LLM indisponível (teste com servidor falso). Teste com o LLM real fica para quando a chave estiver no `.env`.
 
 **Pronto quando**: a conversa consulta o catálogo e grava um pedido que o worker confirma.
 

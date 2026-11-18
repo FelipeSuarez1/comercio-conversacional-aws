@@ -10,6 +10,20 @@ Projeto semestral de CLOUD 101 (Insper): MVP de comércio conversacional em ECS 
 - [Proposta de arquitetura](docs/arquitetura.md)
 - [Planejamento](docs/planejamento.md)
 
+## Rodando localmente
+
+Requer Docker com Compose. Os emuladores (DynamoDB Local e ElasticMQ) sobem junto; o LLM roda em modo `fake` por padrão, sem chave.
+
+```bash
+cp .env.example .env          # ajuste LLM_MODO=real e a chave só se quiser usar o LLM de verdade
+docker compose up --build     # sobe tudo; o serviço seed cria as tabelas e o catálogo
+bash scripts/smoke-test.sh    # em outro terminal: health, catálogo, pedido CONFIRMADO e REJEITADO
+```
+
+Documentação interativa da API: http://localhost:8000/docs
+
+Para demonstrar a DLQ (requer `pip install -r scripts/requirements.txt`): `bash scripts/enviar-mensagem-invalida.sh --acompanhar`.
+
 ## Estrutura
 
 ```

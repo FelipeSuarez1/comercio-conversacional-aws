@@ -1,0 +1,4 @@
+# Scripts bash e configs precisam de LF mesmo quando clonados no Windows
+*.sh   text eol=lf
+*.conf text eol=lf
+*.py   text eol=lf
