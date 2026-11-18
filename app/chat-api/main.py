@@ -1,13 +1,15 @@
 """chat-api: rotas HTTP do vendedor de cafés (contrato em docs/contratos.md)."""
 
 import logging
+import socket
 import uuid
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, StringConstraints
 
+import pagina
 from config import carregar_config
 from repositorio import Repositorio
 from vendedor import LLMIndisponivel, Vendedor
@@ -34,6 +36,22 @@ vendedor = Vendedor(config, repo)
 log.info("chat-api iniciado llm_modo=%s regiao=%s", config.llm_modo, config.aws_region)
 
 app = FastAPI(title="chat-api", description="Vendedor de cafés especiais da Grão")
+
+# Em rede bridge o hostname é o ID curto do container: identifica a task que respondeu
+# (útil para ver o ALB distribuindo as requisições).
+TASK_ID = socket.gethostname()
+
+
+@app.middleware("http")
+async def identificar_task(request: Request, call_next):
+    resposta = await call_next(request)
+    resposta.headers["X-Task"] = TASK_ID
+    return resposta
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def pagina_inicial():
+    return pagina.HTML
 
 
 class EntradaChat(BaseModel):
