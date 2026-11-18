@@ -4,7 +4,7 @@ HTML estático servido em GET /. Fala só com as rotas da própria API
 (/chat, /produtos, /pedidos/{id}); não tem dependências externas.
 """
 
-HTML = """<!doctype html>
+HTML = r"""<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -94,6 +94,19 @@ HTML = """<!doctype html>
     return div;
   }
 
+  // Markdown mínimo da resposta da IA (negrito e listas), com o texto escapado antes:
+  // nada vindo da IA vira HTML a não ser as tags geradas aqui.
+  function adicionarFormatado(texto) {
+    const escapar = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const html = escapar(texto)
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+      .replace(/^\s*[-*] /gm, "• ")
+      .replace(/^#+\s*/gm, "");
+    const div = adicionar("vendedor", "");
+    div.innerHTML = html;
+    mensagens.scrollTop = mensagens.scrollHeight;
+  }
+
   async function atualizarCatalogo() {
     try {
       const r = await fetch("/produtos");
@@ -173,7 +186,7 @@ HTML = """<!doctype html>
       pensando.remove();
       if (!r.ok) { adicionar("aviso", dados.detail || "Erro ao falar com o vendedor."); return; }
       conversaId = dados.conversa_id;
-      adicionar("vendedor", dados.resposta);
+      adicionarFormatado(dados.resposta);
       for (const id of dados.pedidos_criados) acompanharPedido(id);
     } catch (e) {
       pensando.remove();
