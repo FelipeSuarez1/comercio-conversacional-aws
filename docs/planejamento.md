@@ -75,7 +75,7 @@ Console e AWS CLI apenas. **Anotar cada recurso criado** — a relação é um e
 
 - [x] Escrever os scripts de carga em `scripts/`.
 - [x] Ensaiar uma vez e cronometrar (o scale-out de EC2 leva alguns minutos). Ensaiado em Ohio em 2026-11-18.
-- [ ] Capturar prints/gráficos do CloudWatch como evidência.
+- [x] Capturar prints/gráficos do CloudWatch como evidência ([evidencias.md](evidencias.md)).
 
 ## Fase 4 — Terraform em São Paulo (sa-east-1)
 
