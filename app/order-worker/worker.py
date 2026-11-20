@@ -10,7 +10,8 @@ import time
 import boto3
 
 from config import ARQUIVO_HEARTBEAT, ErroDeConfiguracao, carregar_config
-from processador import MensagemInvalida, PedidoInexistente, Processador, extrair_pedido_id
+from log_json import configurar_logs, contexto_log
+from processador import MensagemInvalida, PedidoInexistente, Processador, extrair_mensagem
 
 log = logging.getLogger("order-worker")
 
@@ -38,7 +39,7 @@ def gravar_heartbeat():
             arquivo.write(str(time.time()))
         os.replace(temporario, ARQUIVO_HEARTBEAT)
     except OSError:
-        log.exception("não foi possível gravar o heartbeat em %s", ARQUIVO_HEARTBEAT)
+        log.exception("não foi possível gravar o heartbeat", extra={"arquivo": ARQUIVO_HEARTBEAT})
 
 
 def tratar_mensagem(sqs, fila_url, processador, mensagem):
@@ -46,35 +47,37 @@ def tratar_mensagem(sqs, fila_url, processador, mensagem):
     message_id = mensagem.get("MessageId")
     recebimentos = mensagem.get("Attributes", {}).get("ApproximateReceiveCount", "?")
 
-    try:
-        pedido_id = extrair_pedido_id(mensagem.get("Body"))
-    except MensagemInvalida as erro:
-        log.error(
-            "mensagem %s malformada (%s); não apagada, recebimento %s de 3 antes da DLQ",
-            message_id, erro, recebimentos,
-        )
-        return
+    with contexto_log(message_id=message_id, recebimento=recebimentos):
+        try:
+            pedido_id, conversa_id = extrair_mensagem(mensagem.get("Body"))
+        except MensagemInvalida as erro:
+            log.error("mensagem malformada (%s); não apagada, vai para a DLQ após 3 recebimentos", erro)
+            return
 
+        # Daqui em diante todo log (inclusive do processador) leva pedido_id e conversa_id.
+        with contexto_log(pedido_id=pedido_id, conversa_id=conversa_id):
+            _processar_e_apagar(sqs, fila_url, processador, mensagem, pedido_id)
+
+
+def _processar_e_apagar(sqs, fila_url, processador, mensagem, pedido_id):
     try:
         resultado = processador.processar(pedido_id)
     except PedidoInexistente:
-        log.error(
-            "pedido_id=%s não existe; mensagem %s não apagada, recebimento %s de 3 antes da DLQ",
-            pedido_id, message_id, recebimentos,
-        )
+        log.error("pedido não existe; mensagem não apagada, vai para a DLQ após 3 recebimentos")
         return
     except Exception:
-        log.exception("pedido_id=%s erro inesperado; mensagem %s volta para a fila", pedido_id, message_id)
+        log.exception("erro inesperado; mensagem volta para a fila")
         return
 
     try:
         sqs.delete_message(QueueUrl=fila_url, ReceiptHandle=mensagem["ReceiptHandle"])
     except Exception:
         # O resultado já está gravado; se a mensagem voltar, será tratada como duplicada.
-        log.exception("pedido_id=%s resultado %s gravado, mas falhou ao apagar a mensagem", pedido_id, resultado)
+        log.exception("resultado %s gravado, mas falhou ao apagar a mensagem", resultado,
+                      extra={"resultado": resultado})
         return
 
-    log.info("pedido_id=%s resultado %s; mensagem apagada", pedido_id, resultado)
+    log.info("resultado %s; mensagem apagada", resultado, extra={"resultado": resultado})
 
 
 def main():
@@ -83,10 +86,8 @@ def main():
     except ErroDeConfiguracao as erro:
         sys.exit(f"configuração inválida: {erro}")
 
-    logging.basicConfig(
-        level=config.log_level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    # Um JSON por linha no stdout (formato em docs/contratos.md).
+    configurar_logs("order-worker", config.log_level)
 
     signal.signal(signal.SIGTERM, pedir_parada)
     signal.signal(signal.SIGINT, pedir_parada)
@@ -95,7 +96,7 @@ def main():
     dynamodb = criar_cliente("dynamodb", config.regiao, config.dynamodb_endpoint_url)
     processador = Processador(dynamodb, config.tabela_pedidos, config.tabela_produtos)
 
-    log.info("worker iniciado; lendo a fila %s", config.fila_pedidos_url)
+    log.info("worker iniciado; lendo a fila", extra={"fila": config.fila_pedidos_url})
 
     while not parar.is_set():
         gravar_heartbeat()  # também com a fila vazia: prova que o loop está vivo

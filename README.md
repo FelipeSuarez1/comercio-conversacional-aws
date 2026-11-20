@@ -36,7 +36,7 @@ bash scripts/smoke-test.sh    # em outro terminal: health, catálogo, pedido CON
 ```
 
 - API e Swagger (interface de conversa da versão C): http://localhost:8000/docs
-- Testes do worker: `pip install -r app/order-worker/requirements-dev.txt` e `pytest app/order-worker/tests`.
+- Testes (um serviço por vez): `pip install -r app/order-worker/requirements-dev.txt -r app/chat-api/requirements-dev.txt`, depois `pytest app/order-worker/tests` e `pytest app/chat-api/tests`.
 - DLQ local (requer `pip install -r scripts/requirements.txt`): `bash scripts/enviar-mensagem-invalida.sh --acompanhar`.
 
 ## Etapa 1 — Ohio (manual)

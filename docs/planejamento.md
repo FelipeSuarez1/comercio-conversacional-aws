@@ -34,7 +34,7 @@ Itens marcados com **[B]** nas fases ficam para a segunda rodada.
 - [x] `chat-api`: FastAPI, `/health`, `/chat`, loop de tool calling. Página HTML **[B]**.
 - [x] Tools: `buscar_produtos`, `criar_pedido`. `consultar_estoque` e `consultar_pedido` **[B]**.
 - [x] `order-worker`: consumo da fila, baixa de estoque, confirmação do pedido, escrita condicional, idempotência e heartbeat (23 testes unitários).
-- [ ] Logs JSON com `conversa_id` / `pedido_id` / `request_id` **[B]**.
+- [x] Logs JSON com `conversa_id` / `pedido_id` / `request_id` **[B]**.
 - [x] Dockerfiles e `docker-compose` com DynamoDB Local e ElasticMQ (ou LocalStack).
 - [x] Script de carga do catálogo (`seed`).
 - [x] Testar a jornada completa e estoque insuficiente (`scripts/smoke-test.sh`); mensagem duplicada (testes do worker); LLM indisponível (teste com servidor falso). Teste com o LLM real fica para quando a chave estiver no `.env`.
