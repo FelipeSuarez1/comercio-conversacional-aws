@@ -70,7 +70,7 @@ Tudo o que cada um fala e mostra está no [roteiro](apresentacao/roteiro-video.m
 ### Se o Felipe não puder participar à noite
 
 - As etapas 1, 2, 3, 5 e 6 **não dependem de acesso à AWS**: a página é pública e o resto é PPT e código. Outra pessoa assume a fala da Etapa 1.
-- A **Etapa 4 (console AWS)** só o Felipe consegue mostrar ao vivo, porque só ele tem login na conta. Alternativas, em ordem de preferência:
+- A **Etapa 4 (console AWS)**: o Lenny tem um usuário só de leitura (`lenny-wajcberg-leitura`, senha passada pelo Felipe em particular) e pode navegar no console sozinho. Ele entra pelo link de login de usuários IAM da conta (não pelo portal do Insper) e troca a região para São Paulo. Se o acesso falhar, alternativas:
   1. O Felipe grava antes só a navegação do console (compartilhando a tela, ~2:30), seguindo a tabela da Etapa 4, e o Lenny narra por cima na edição.
   2. Se não houver gravação, usar prints do console (o Felipe tira e manda) e o Lenny narra sobre eles. Os gráficos em [docs/evidencias/](docs/evidencias/) também servem de apoio.
 - **Ninguém além do Felipe deve receber a senha ou a chave da IA.** Nunca colar chaves no chat do grupo.
@@ -147,6 +147,7 @@ Os dois ambientes estão ligados. O NAT Gateway, o ALB e as EC2 cobram por hora.
 1. **São Paulo:** `terraform -chdir=infra/envs/sa-east-1 destroy` (o destroy foi corrigido e roda limpo em ~6 min).
 2. **Ohio:** pausar (tasks e ASG a zero) ou desmontar, conforme a seção "Desligar para economizar" do [ohio-manual.md](docs/ohio-manual.md).
 3. Conferir no console (Billing) que não sobrou nada cobrando.
+4. **Apagar o usuário IAM `lenny-wajcberg-leitura`** (criado em 20/11 só para o Lenny mostrar o console no vídeo: leitura apenas, sem acesso ao valor de segredos). Console → IAM → Users → selecionar → Delete.
 
 ## 9. Problemas encontrados e como foram resolvidos
 

@@ -18,7 +18,7 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler.
 1. **Felipe** cria a reunião no Teams com a conta do Insper; todos entram com **câmera ligada**, e o Felipe clica em **Gravar**.
 2. Na sua vez, cada pessoa clica em **Compartilhar → Janela** (não a tela inteira) e escolhe o PowerPoint em modo apresentação, o navegador ou o VS Code. Ao terminar, para de compartilhar e chama a próxima pessoa pelo nome.
 3. Todos abrem o PPT (`apresentacao/apresentacao-video.pptx`) já no slide da sua etapa antes de começar.
-4. **Só o Felipe tem acesso à conta AWS.** Na Etapa 4, o Felipe compartilha o console e clica, enquanto o Lenny narra seguindo a tabela.
+4. **Na Etapa 4, o Lenny usa o próprio acesso de leitura** (usuário `lenny-wajcberg-leitura`, senha passada pelo Felipe em particular). Se der problema, o Felipe compartilha o console e clica enquanto o Lenny narra.
 5. Errou? Pare e recomece a frase ou a etapa; o trecho errado é cortado depois no Clipchamp.
 6. No fim, o Felipe para a gravação, baixa o MP4 (chat da reunião → gravação → **Download**), corta os erros e exporta em 1080p. Conferir a duração: **10 a 15 min**. O professor pode perguntar qualquer parte para qualquer pessoa, então todos devem ler o roteiro inteiro.
 
