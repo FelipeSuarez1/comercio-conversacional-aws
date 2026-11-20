@@ -91,12 +91,13 @@ class Repositorio:
         item = resposta.get("Item")
         return _sem_decimal(item) if item else None
 
-    def enviar_para_fila(self, pedido_id: str) -> None:
-        # A mensagem leva só o id; o worker relê o pedido no DynamoDB.
-        self.sqs.send_message(
-            QueueUrl=self.fila_url,
-            MessageBody=json.dumps({"pedido_id": pedido_id}),
-        )
+    def enviar_para_fila(self, pedido_id: str, conversa_id: str | None = None) -> None:
+        # A mensagem leva só ids: o worker relê o pedido no DynamoDB.
+        # conversa_id vai junto apenas para correlacionar os logs do worker.
+        corpo = {"pedido_id": pedido_id}
+        if conversa_id:
+            corpo["conversa_id"] = conversa_id
+        self.sqs.send_message(QueueUrl=self.fila_url, MessageBody=json.dumps(corpo))
 
     # ---------- conversas ----------
 

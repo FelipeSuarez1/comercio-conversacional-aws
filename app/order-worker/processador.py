@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from boto3.dynamodb.types import TypeDeserializer
 from botocore.exceptions import ClientError
 
+from log_json import contexto_log
+
 log = logging.getLogger("order-worker.processador")
 
 PENDENTE = "PENDENTE"
@@ -33,6 +35,14 @@ class PedidoInexistente(Exception):
 
 def extrair_pedido_id(corpo):
     """Lê o corpo {"pedido_id": "<uuid>"} e devolve o id."""
+    return extrair_mensagem(corpo)[0]
+
+
+def extrair_mensagem(corpo):
+    """Lê o corpo {"pedido_id": "<uuid>", "conversa_id": "<uuid>"} e devolve (pedido_id, conversa_id).
+
+    conversa_id é opcional (mensagens antigas ou de scripts só têm o pedido_id): vem None.
+    """
     try:
         dados = json.loads(corpo)
     except (TypeError, ValueError) as erro:
@@ -44,7 +54,11 @@ def extrair_pedido_id(corpo):
     pedido_id = dados.get("pedido_id")
     if not isinstance(pedido_id, str) or not pedido_id.strip():
         raise MensagemInvalida("campo pedido_id ausente ou vazio")
-    return pedido_id.strip()
+
+    conversa_id = dados.get("conversa_id")
+    if not isinstance(conversa_id, str) or not conversa_id.strip():
+        conversa_id = None
+    return pedido_id.strip(), conversa_id and conversa_id.strip()
 
 
 def agora_iso():
@@ -71,9 +85,14 @@ class Processador:
         """
         # Etapa 1: relê o pedido; se não estiver PENDENTE, a mensagem é duplicada.
         pedido = self._ler_pedido(pedido_id)
+        # O conversa_id gravado no pedido vale para os logs, mesmo se a mensagem não o trouxer.
+        with contexto_log(pedido_id=pedido_id, conversa_id=pedido.get("conversa_id")):
+            return self._processar(pedido_id, pedido)
+
+    def _processar(self, pedido_id, pedido):
         status = pedido.get("status")
         if status != PENDENTE:
-            log.info("pedido_id=%s já está %s; mensagem duplicada", pedido_id, status)
+            log.info("pedido já está %s; mensagem duplicada", status)
             return DUPLICADO
 
         quantidades = self._quantidades_por_produto(pedido_id, pedido.get("itens", []))
@@ -89,7 +108,7 @@ class Processador:
                 raise
             return self._tratar_cancelamento(pedido_id, quantidades, erro, agora)
 
-        log.info("pedido_id=%s confirmado; estoque baixado de %s", pedido_id, quantidades)
+        log.info("pedido confirmado; estoque baixado", extra={"quantidades": quantidades})
         return CONFIRMADO
 
     def _ler_pedido(self, pedido_id):
@@ -162,7 +181,7 @@ class Processador:
 
         # Outro worker já processou o pedido entre a leitura e a transação.
         if motivo_pedido == "ConditionalCheckFailed":
-            log.info("pedido_id=%s deixou de estar PENDENTE; mensagem duplicada", pedido_id)
+            log.info("pedido deixou de estar PENDENTE; mensagem duplicada")
             return DUPLICADO
 
         sem_estoque = [
@@ -194,9 +213,9 @@ class Processador:
             )
         except ClientError as erro:
             if _codigo_do_erro(erro) == "ConditionalCheckFailedException":
-                log.info("pedido_id=%s deixou de estar PENDENTE; mensagem duplicada", pedido_id)
+                log.info("pedido deixou de estar PENDENTE; mensagem duplicada")
                 return DUPLICADO
             raise
 
-        log.info("pedido_id=%s rejeitado: %s (sem estoque: %s)", pedido_id, MOTIVO_SEM_ESTOQUE, sem_estoque)
+        log.info("pedido rejeitado: %s", MOTIVO_SEM_ESTOQUE, extra={"sem_estoque": sem_estoque})
         return REJEITADO

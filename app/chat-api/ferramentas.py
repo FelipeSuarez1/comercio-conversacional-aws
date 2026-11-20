@@ -191,20 +191,18 @@ def criar_pedido(ctx: Contexto, itens=None) -> dict:
         "criado_em": agora,
         "atualizado_em": agora,
     }
+    ids = {"conversa_id": ctx.conversa_id, "pedido_id": pedido_id}
     ctx.repo.salvar_pedido(pedido)
-    log.info("pedido gravado conversa_id=%s pedido_id=%s total_centavos=%s",
-             ctx.conversa_id, pedido_id, total)
+    log.info("pedido gravado", extra={**ids, "total_centavos": total})
 
     try:
-        ctx.repo.enviar_para_fila(pedido_id)
+        ctx.repo.enviar_para_fila(pedido_id, ctx.conversa_id)
     except Exception:
         # O pedido ficou gravado como PENDENTE, mas o worker não vai recebê-lo.
-        log.error("pedido gravado mas não enviado para a fila conversa_id=%s pedido_id=%s",
-                  ctx.conversa_id, pedido_id)
+        log.error("pedido gravado mas não enviado para a fila", extra=ids)
         raise
     ctx.pedidos_criados.append(pedido_id)
-    log.info("pedido enviado para a fila conversa_id=%s pedido_id=%s",
-             ctx.conversa_id, pedido_id)
+    log.info("pedido enviado para a fila", extra=ids)
 
     return {
         "pedido_id": pedido_id,
@@ -214,11 +212,90 @@ def criar_pedido(ctx: Contexto, itens=None) -> dict:
     }
 
 
+def consultar_estoque(ctx: Contexto, produto_id: str | None = None,
+                      nome: str | None = None) -> dict:
+    """Estoque de um café, pelo produto_id exato ou pelo nome (busca aproximada)."""
+    if not produto_id and not nome:
+        raise ErroFerramenta("Informe o produto_id ou o nome do café.")
+
+    produto = None
+    if produto_id:
+        produto = ctx.repo.obter_produto(str(produto_id).strip())
+
+    parecidos = []
+    if produto is None:
+        # Sem id exato: procura pelo nome (o id errado também serve como texto).
+        termo = str(nome or produto_id)
+        palavras = palavras_busca(termo.replace("-", " "))
+        candidatos = []
+        for p in ctx.repo.listar_produtos():
+            alvo = normalizar(f"{p.get('nome', '')} {p['produto_id']}")
+            acertos = sum(1 for w in palavras if w in alvo)
+            if acertos:
+                candidatos.append((acertos, p))
+        if not candidatos:
+            raise ErroFerramenta(
+                f"Não encontrei o café '{termo}' no catálogo. Use buscar_produtos para ver os ids."
+            )
+        candidatos.sort(key=lambda par: par[0], reverse=True)
+        produto = candidatos[0][1]
+        parecidos = [p["nome"] for _, p in candidatos[1:MAXIMO_RESULTADOS_BUSCA]]
+
+    estoque = int(produto.get("estoque", 0))
+    resultado = {
+        "produto_id": produto["produto_id"],
+        "nome": produto["nome"],
+        "estoque": estoque,
+        "disponivel": estoque > 0,
+        "preco_reais": formatar_reais(produto["preco_centavos"]),
+    }
+    if parecidos:
+        resultado["outros_parecidos"] = parecidos
+    return resultado
+
+
+def consultar_pedido(ctx: Contexto, pedido_id: str | None = None) -> dict:
+    """Status, itens e total de um pedido (os mesmos dados de GET /pedidos/{id})."""
+    if not isinstance(pedido_id, str) or not pedido_id.strip():
+        raise ErroFerramenta("Informe o número do pedido (pedido_id).")
+    pedido_id = pedido_id.strip()
+
+    pedido = ctx.repo.obter_pedido(pedido_id)
+    if pedido is None:
+        raise ErroFerramenta(f"Pedido '{pedido_id}' não encontrado.")
+    log.info("pedido consultado",
+             extra={"conversa_id": ctx.conversa_id, "pedido_id": pedido_id,
+                    "status": pedido.get("status")})
+
+    resultado = {
+        "pedido_id": pedido["pedido_id"],
+        "status": pedido.get("status"),
+        "itens": [
+            {
+                "produto_id": item.get("produto_id"),
+                "nome": item.get("nome"),
+                "quantidade": item.get("quantidade"),
+                "preco_unitario_reais": formatar_reais(item.get("preco_unitario_centavos", 0)),
+            }
+            for item in pedido.get("itens", [])
+        ],
+        "desconto_reais": formatar_reais(pedido.get("desconto_centavos", 0)),
+        "total_reais": formatar_reais(pedido.get("total_centavos", 0)),
+        "criado_em": pedido.get("criado_em"),
+        "atualizado_em": pedido.get("atualizado_em"),
+    }
+    if pedido.get("motivo"):
+        resultado["motivo"] = pedido["motivo"]
+    return resultado
+
+
 # ---------- definição para o modelo e despacho ----------
 
 FERRAMENTAS = {
     "buscar_produtos": buscar_produtos,
     "criar_pedido": criar_pedido,
+    "consultar_estoque": consultar_estoque,
+    "consultar_pedido": consultar_pedido,
 }
 
 # Formato "tools" da API de chat completions (compatível com OpenAI).
@@ -285,6 +362,52 @@ DEFINICOES = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "consultar_estoque",
+            "description": (
+                "Consulta o estoque atual de um café específico. Use quando o cliente "
+                "perguntar se um café tem estoque ou quantos pacotes há. Informe o "
+                "produto_id (de buscar_produtos) ou, se não souber, o nome."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "produto_id": {
+                        "type": "string",
+                        "description": "Id do produto, como veio de buscar_produtos.",
+                    },
+                    "nome": {
+                        "type": "string",
+                        "description": "Nome ou parte do nome do café. Ex.: 'geisha'.",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "consultar_pedido",
+            "description": (
+                "Consulta um pedido já feito: status (PENDENTE, CONFIRMADO ou REJEITADO), "
+                "motivo da rejeição, itens e total. Use quando o cliente perguntar pelo "
+                "pedido dele; o número do pedido aparece na conversa depois de criar_pedido."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pedido_id": {
+                        "type": "string",
+                        "description": "Número (id) do pedido, como veio de criar_pedido.",
+                    },
+                },
+                "required": ["pedido_id"],
+            },
+        },
+    },
 ]
 
 
@@ -314,9 +437,11 @@ def executar(nome: str, argumentos, ctx: Contexto) -> dict:
     try:
         return funcao(ctx, **argumentos)
     except ErroFerramenta as erro:
-        log.info("ferramenta %s recusou conversa_id=%s motivo=%s", nome, ctx.conversa_id, erro)
+        log.info("ferramenta recusou", extra={"ferramenta": nome, "conversa_id": ctx.conversa_id,
+                                              "motivo": str(erro)})
         return {"erro": str(erro)}
     except Exception:
         # Falha inesperada (ex.: DynamoDB ou SQS fora do ar): registra e avisa o modelo.
-        log.exception("erro ao executar ferramenta %s conversa_id=%s", nome, ctx.conversa_id)
+        log.exception("erro ao executar ferramenta",
+                      extra={"ferramenta": nome, "conversa_id": ctx.conversa_id})
         return {"erro": "Falha interna ao executar a ferramenta. Tente novamente mais tarde."}

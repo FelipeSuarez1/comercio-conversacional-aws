@@ -11,18 +11,19 @@ from pydantic import BaseModel, StringConstraints
 
 import pagina
 from config import carregar_config
+from log_json import configurar_logs, contexto_log
 from repositorio import Repositorio
 from vendedor import LLMIndisponivel, Vendedor
 
 # Falha cedo: sem as variáveis obrigatórias o processo nem sobe.
 config = carregar_config()
 
-logging.basicConfig(
-    level=config.log_level,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
+# Um JSON por linha no stdout, inclusive os logs do próprio uvicorn (docs/contratos.md).
+configurar_logs("chat-api", config.log_level,
+                loggers_externos=("uvicorn", "uvicorn.error", "uvicorn.access"))
 # O httpx registra cada requisição em INFO; deixamos só avisos e erros.
-logging.getLogger("httpx").setLevel(logging.WARNING)
+for nome in ("httpx", "httpx2"):  # o openai 3.x usa o httpx2
+    logging.getLogger(nome).setLevel(logging.WARNING)
 log = logging.getLogger("chat-api")
 
 LIMITE_HISTORICO = 20
@@ -33,7 +34,7 @@ MENSAGEM_LLM_INDISPONIVEL = (
 
 repo = Repositorio(config)
 vendedor = Vendedor(config, repo)
-log.info("chat-api iniciado llm_modo=%s regiao=%s", config.llm_modo, config.aws_region)
+log.info("chat-api iniciado", extra={"llm_modo": config.llm_modo, "regiao": config.aws_region})
 
 app = FastAPI(title="chat-api", description="Vendedor de cafés especiais da Grão")
 
@@ -44,8 +45,12 @@ TASK_ID = socket.gethostname()
 
 @app.middleware("http")
 async def identificar_task(request: Request, call_next):
-    resposta = await call_next(request)
+    # request_id: reaproveita o X-Request-Id se vier do cliente, senão gera um.
+    request_id = (request.headers.get("x-request-id") or "")[:100] or str(uuid.uuid4())
+    with contexto_log(request_id=request_id):
+        resposta = await call_next(request)
     resposta.headers["X-Task"] = TASK_ID
+    resposta.headers["X-Request-Id"] = request_id
     return resposta
 
 
@@ -77,24 +82,29 @@ def health():
 @app.post("/chat", response_model=SaidaChat)
 def chat(entrada: EntradaChat):
     conversa_id = entrada.conversa_id or str(uuid.uuid4())
-    log.info("mensagem recebida conversa_id=%s", conversa_id)
+    # Todos os logs desta requisição (vendedor, ferramentas, repositório) levam o conversa_id.
+    with contexto_log(conversa_id=conversa_id):
+        return _conversar(conversa_id, entrada.mensagem)
+
+
+def _conversar(conversa_id: str, mensagem: str):
+    log.info("mensagem recebida")
 
     # O histórico é lido antes de gravar a mensagem nova, para não duplicá-la.
     historico = repo.carregar_historico(conversa_id, LIMITE_HISTORICO)
-    repo.salvar_mensagem(conversa_id, "cliente", entrada.mensagem)
+    repo.salvar_mensagem(conversa_id, "cliente", mensagem)
 
     try:
-        resposta = vendedor.responder(conversa_id, entrada.mensagem, historico)
+        resposta = vendedor.responder(conversa_id, mensagem, historico)
     except LLMIndisponivel:
-        log.warning("LLM indisponivel, respondendo 503 conversa_id=%s", conversa_id)
+        log.warning("LLM indisponivel, respondendo 503")
         return JSONResponse(
             status_code=503,
             content={"detail": MENSAGEM_LLM_INDISPONIVEL, "conversa_id": conversa_id},
         )
 
     repo.salvar_mensagem(conversa_id, "vendedor", resposta.texto)
-    log.info("resposta enviada conversa_id=%s pedidos_criados=%s",
-             conversa_id, ",".join(resposta.pedidos_criados) or "-")
+    log.info("resposta enviada", extra={"pedidos_criados": resposta.pedidos_criados})
     return SaidaChat(
         conversa_id=conversa_id,
         resposta=resposta.texto,

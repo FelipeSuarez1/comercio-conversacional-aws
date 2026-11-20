@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY config.py processador.py worker.py healthcheck.py ./
+COPY config.py log_json.py processador.py worker.py healthcheck.py ./
 
 # Roda sem privilégios de root
 RUN useradd --create-home --uid 10001 worker
