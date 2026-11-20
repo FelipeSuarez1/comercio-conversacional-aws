@@ -39,6 +39,8 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler.
 
 ## Etapa 1 — Startup e proposta de valor (Felipe Suarez, 1:30)
 
+**Alternativa (mais fácil):** as falas desta etapa estão nas **notas dos slides 1 a 4** do PPT. Dá para gravar a etapa sozinho no próprio PowerPoint (**Apresentação de Slides → Gravar**), lendo as falas no visor com a câmera ligada, e depois exportar em **Arquivo → Exportar → Criar um Vídeo** (Full HD 1080p). O vídeo entra como a primeira parte na edição.
+
 **Passo a passo na tela:**
 1. Compartilhe o PowerPoint em modo apresentação, no **slide 1 (capa)**. Apresente o grupo em uma frase.
 2. **Slide 2 (problema):** fale o 1º e o 2º parágrafos da fala.
