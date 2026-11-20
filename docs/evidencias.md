@@ -98,8 +98,10 @@ Carga: `scripts/enfileirar-pedidos.py 6000` e duas instâncias de `scripts/carga
 ### Destroy e apply único
 
 - `terraform destroy` completo (43 recursos) e `terraform apply` a partir da conta vazia às 15:04–15:10. O apply fez sozinho o build e o push das duas imagens, a carga dos 10 cafés no DynamoDB e a gravação do segredo; o único passo fora do Terraform foi colar o valor da chave do LLM no Secrets Manager, que de propósito não fica no código nem no state.
-- Dois problemas achados e corrigidos no caminho (commits no histórico):
+- **Prova final, com o código corrigido (16:10 – 16:20):** `terraform destroy` removeu os **89 recursos em 6 min sem travar** e um único `terraform apply` recriou os **89 em 2 min 46 s** (build e push das imagens, catálogo, segredo, rede, cluster, serviços, alarmes), sem nenhum erro nem intervenção.
+- Três problemas achados e corrigidos no caminho (commits no histórico):
   - **Destroy preso em DRAINING**: o Terraform apagava a rota pública antes dos serviços; os agentes ECS perdiam a conexão e as tasks nunca terminavam de parar. As instâncias agora dependem também da rota pública e do IGW (`infra/modules/network/outputs.tf`).
+  - **O mesmo com as regras dos security groups**: a saída HTTPS das instâncias era apagada cedo; o ALB e as instâncias agora dependem das regras.
   - **Build pelo provider docker** falhava no Docker Desktop do Windows; o build passou para o `docker` CLI chamado pelo próprio apply, e o push continua pelo provider.
 
 ### Funcionalidades novas, com o LLM real
@@ -138,4 +140,4 @@ Ohio recebeu as mesmas mudanças à mão (políticas, limiares, filtro de erros 
 | Mensagem inválida na DLQ + alarme | sim (18:04) | sim (18:33) |
 | Escala por requisições no ALB (B, alvo 600) | configurada | chat 3 → 6 com CPU < 40% (20/11 15:38) |
 | Worker com alvo 20 e scale-out em 30 s (B) | configurado | 1 → 4 em ~4 min (C: ~6 min) |
-| Destroy completo + apply único do zero (B) | — | sim (20/11, 43 destruídos; recriado com build, catálogo e segredo) |
+| Destroy completo + apply único do zero (B) | — | sim: 89 destruídos em 6 min; 89 criados em 2 min 46 s, sem erro |

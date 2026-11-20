@@ -17,7 +17,7 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 ## Antes de gravar (checklist)
 
-- [ ] Ambiente de São Paulo no ar: abrir `http://cafe-alb-1866745903.sa-east-1.elb.amazonaws.com/` e ver a tabela de catálogo carregada.
+- [ ] Ambiente de São Paulo no ar: abrir `http://cafe-alb-170785092.sa-east-1.elb.amazonaws.com/` e ver a tabela de catálogo carregada.
 - [ ] Estoque reposto (o Cerrado Mineiro deve mostrar 50). Se não, peça para rodar o seed de novo.
 - [ ] Console AWS logado e com a região **South America (São Paulo) sa-east-1** selecionada.
 - [ ] Abrir as abas do console **antes** de gravar (lista na Etapa 4), para não perder tempo carregando.
@@ -50,7 +50,7 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 ## Etapa 2 — Demonstração real da aplicação (Pessoa 2, 2:00)
 
-**Na tela:** navegador em `http://cafe-alb-1866745903.sa-east-1.elb.amazonaws.com/`, zoom 125%. Deixe a conversa e o catálogo visíveis lado a lado.
+**Na tela:** navegador em `http://cafe-alb-170785092.sa-east-1.elb.amazonaws.com/`, zoom 125%. Deixe a conversa e o catálogo visíveis lado a lado.
 
 **Passo a passo (digite estas mensagens):**
 1. `Oi! Gosto de café frutado e faço no coado. O que você recomenda?`
