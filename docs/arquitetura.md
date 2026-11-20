@@ -65,7 +65,7 @@ flowchart LR
 | Responsabilidade | Front, endpoint `/chat`, orquestra o LLM e as tools, grava conversa e pedido `PENDENTE` | Consome a fila, reserva estoque, confirma ou rejeita o pedido |
 | Entrada | ALB (síncrono) | SQS (assíncrono) |
 | Perfil de carga | I/O intenso, latência dominada pelo LLM, muitas conexões abertas | Rajadas curtas conforme a fila |
-| Métrica de escala | CPU média 60% (target tracking); em sa-east-1 também `ALBRequestCountPerTarget` 1500 req/task/min | Mensagens visíveis na fila por task (target tracking, alvo 100 em Ohio; 20 com scale-out de 30 s em sa-east-1) |
+| Métrica de escala | CPU média 60% (target tracking); em sa-east-1 também `ALBRequestCountPerTarget` 600 req/task/min | Mensagens visíveis na fila por task (target tracking, alvo 100 em Ohio; 20 com scale-out de 30 s em sa-east-1) |
 | Tasks min / max | 2 / 8 | 1 / 4 |
 | Health check | `GET /health` no target group | `healthCheck` do container (heartbeat do loop de consumo) |
 

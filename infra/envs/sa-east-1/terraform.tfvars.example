@@ -31,7 +31,7 @@ model_id     = "<id-do-modelo>"
 
 # Escala das tasks
 # chat_api_cpu_alvo             = 60   # CPU média (%)
-# chat_api_requisicoes_por_task = 1500 # requisições por task por minuto no ALB
+# chat_api_requisicoes_por_task = 600 # requisições por task por minuto no ALB
 # worker_backlog_por_task       = 20   # mensagens na fila por task
 # worker_cooldown_saida         = 30   # s
 # worker_cooldown_entrada       = 120  # s

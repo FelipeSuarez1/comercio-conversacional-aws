@@ -670,7 +670,7 @@ aws logs tail /ecs/$PREFIXO/chat-api --since 10m
 Objetivo: o **primeiro nível de elasticidade**. O Application Auto Scaling ajusta o `desiredCount` de cada serviço. Se as tasks novas não couberem nas instâncias, ficam em `PROVISIONING` e o Capacity Provider do passo 8 sobe mais EC2.
 
 - **chat-api** (2 a 8 tasks): target tracking em CPU média de 60% (medida em relação às 256 unidades reservadas por task). O máximo de 8 foi escolhido de propósito: 8 × 384 MiB + 4 × 192 MiB = 3840 MiB, mais do que as 2 instâncias oferecem (~3826 MiB), então a carga máxima obriga o Capacity Provider a subir a 3ª EC2.
-- **chat-api, segunda política**: target tracking em **requisições por task no ALB** (`ALBRequestCountPerTarget`, alvo 1500 por minuto). Com duas políticas, o serviço escala para cima quando *qualquer uma* pede e só reduz quando *as duas* permitem. A CPU cobre conversas pesadas (chamadas à IA); as requisições cobrem picos de tráfego leve, que sobem a CPU devagar.
+- **chat-api, segunda política**: target tracking em **requisições por task no ALB** (`ALBRequestCountPerTarget`, alvo 600 por minuto). Com duas políticas, o serviço escala para cima quando *qualquer uma* pede e só reduz quando *as duas* permitem. A CPU cobre conversas pesadas (chamadas à IA); as requisições cobrem picos de tráfego leve, que sobem a CPU devagar.
 - **order-worker** (1 a 4 tasks): target tracking em **mensagens visíveis na fila por task** (alvo 20, scale-out com cooldown de 30 s), com uma métrica calculada (`visiveis / tasks`) que junta `ApproximateNumberOfMessagesVisible` do SQS e `RunningTaskCount` do Container Insights. CPU não serve para o worker: ele passa quase todo o tempo esperando o long polling e a CPU fica baixa mesmo com fila cheia.
 
 ```bash
@@ -678,7 +678,7 @@ Objetivo: o **primeiro nível de elasticidade**. O Application Auto Scaling ajus
 aws application-autoscaling register-scalable-target --service-namespace ecs   --scalable-dimension ecs:service:DesiredCount   --resource-id service/$PREFIXO-cluster/$PREFIXO-chat-api --min-capacity 2 --max-capacity 8
 aws application-autoscaling put-scaling-policy --service-namespace ecs   --scalable-dimension ecs:service:DesiredCount   --resource-id service/$PREFIXO-cluster/$PREFIXO-chat-api   --policy-name $PREFIXO-chat-api-cpu60 --policy-type TargetTrackingScaling   --target-tracking-scaling-policy-configuration file://infra/ohio/escala-cpu-60.json   --query PolicyARN --output text
 
-# chat-api: 1500 requisições por task por minuto no ALB.
+# chat-api: 600 requisições por task por minuto no ALB.
 # O rótulo é "app/<alb>/<id>/targetgroup/<tg>/<id>" (o final dos dois ARNs).
 ROTULO_ALB_TG="${ALB_ARN#*:loadbalancer/}/${TG_ARN##*:}"
 sed "s#__ROTULO_ALB_TG__#$ROTULO_ALB_TG#" infra/ohio/escala-chat-requisicoes.json > infra/ohio/.render/escala-chat-requisicoes.json

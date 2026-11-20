@@ -7,7 +7,7 @@ Projeto semestral de CLOUD 101 (Insper). MVP de uma loja de cafés especiais em 
 - `chat-api` (FastAPI) atrás de um ALB público; conversa com uma API de LLM externa (chave no Secrets Manager) e grava conversa e pedido `PENDENTE` no DynamoDB.
 - Pedido vai para uma fila SQS (com DLQ após 3 falhas); o `order-worker` consome, baixa o estoque com escrita condicional e marca `CONFIRMADO` ou `REJEITADO`.
 - VPC em 2 AZs: ALB e 1 NAT nas públicas, instâncias ECS (`t3.small`, ASG 2–4 com Capacity Provider) nas privadas.
-- Escala das tasks: `chat-api` por CPU 60% (2 a 8), `order-worker` por mensagens na fila por task (alvo 100, 1 a 4). Em São Paulo (Terraform): `chat-api` também por requisições no ALB (1500 por task/min) e `order-worker` com alvo 20 e scale-out em 30 s.
+- Escala das tasks: `chat-api` por CPU 60% (2 a 8), `order-worker` por mensagens na fila por task (alvo 20, scale-out em 30 s, 1 a 4); `chat-api` também por requisições no ALB (600 por task/min). Valores da versão B, iguais em Ohio e São Paulo.
 - Container Insights, logs no CloudWatch e 10 alarmes publicando num tópico SNS (em São Paulo, assinatura de e-mail opcional por `email_alertas` e limiares calibrados com os testes de carga).
 
 Detalhes, diagrama e justificativas: [docs/arquitetura.md](docs/arquitetura.md).

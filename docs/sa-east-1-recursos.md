@@ -120,7 +120,7 @@ As roles levam a região no nome (`cafe-sa-east-1-...`) porque IAM é global na 
 | `aws_ecs_service.this` | `cafe-chat-api` | Serviço no `cafe-cp` ligado ao target group; spread por AZ + binpack por memória; deploy 100/200 com circuit breaker |
 | `aws_appautoscaling_target.this` | `service/cafe-cluster/cafe-chat-api` | Limites de 2 a 8 tasks |
 | `aws_appautoscaling_policy.cpu[0]` | `cafe-chat-api-cpu60` | Target tracking em CPU média de 60% (`chat_api_cpu_alvo`) |
-| `aws_appautoscaling_policy.requisicoes[0]` | `cafe-chat-api-req1500` | Target tracking em `ALBRequestCountPerTarget`, 1500 req/task/min (`chat_api_requisicoes_por_task`) |
+| `aws_appautoscaling_policy.requisicoes[0]` | `cafe-chat-api-req600` | Target tracking em `ALBRequestCountPerTarget`, 600 req/task/min (`chat_api_requisicoes_por_task`) |
 
 ## `module.order_worker` — serviço `order-worker` (7)
 

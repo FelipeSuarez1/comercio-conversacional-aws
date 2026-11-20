@@ -1,5 +1,5 @@
 {
-  "TargetValue": 1500.0,
+  "TargetValue": 600.0,
   "PredefinedMetricSpecification": {
     "PredefinedMetricType": "ALBRequestCountPerTarget",
     "ResourceLabel": "__ROTULO_ALB_TG__"

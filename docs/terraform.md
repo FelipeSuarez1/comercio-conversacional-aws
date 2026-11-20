@@ -92,7 +92,7 @@ O segredo só é regravado quando a versão muda: ao trocar `llm_modo` ou ao inc
 |---|---|---|
 | `email_alertas` | `""` | E-mail assinado no tópico `<prefixo>-alertas`. Vazio = sem assinatura. A AWS manda um e-mail de confirmação; até clicar no link a assinatura fica `PendingConfirmation` |
 | `chat_api_cpu_alvo` | `60` | Alvo de CPU média (%) do target tracking do `chat-api` |
-| `chat_api_requisicoes_por_task` | `1500` | Alvo de requisições por task por minuto (`ALBRequestCountPerTarget`) do `chat-api` |
+| `chat_api_requisicoes_por_task` | `600` | Alvo de requisições por task por minuto (`ALBRequestCountPerTarget`) do `chat-api` |
 | `worker_backlog_por_task` | `20` | Alvo de mensagens visíveis na fila por task do `order-worker` |
 | `worker_cooldown_saida` | `30` | Cooldown de scale-out do `order-worker` (s) |
 | `worker_cooldown_entrada` | `120` | Cooldown de scale-in do `order-worker` (s) |
@@ -130,10 +130,10 @@ Sem o `destroy`, o `apply` tentaria criar itens que já existem na tabela e uma 
 
 | Serviço | Políticas de target tracking | Cooldown saída / entrada |
 |---|---|---|
-| `chat-api` (2 a 8 tasks) | CPU média 60% **e** `ALBRequestCountPerTarget` 1500 req/task/min | 60 s / 120 s |
+| `chat-api` (2 a 8 tasks) | CPU média 60% **e** `ALBRequestCountPerTarget` 600 req/task/min | 60 s / 120 s |
 | `order-worker` (1 a 4 tasks) | Mensagens visíveis na fila ÷ tasks rodando, alvo 20 | 30 s / 120 s |
 
-Com duas políticas no mesmo serviço, o Application Auto Scaling escala para fora quando **qualquer uma** pede e só escala para dentro quando **todas** permitem. A de requisições usa como `resource_label` os sufixos dos ARNs do ALB e do target group (`app/<alb>/<id>/targetgroup/<tg>/<id>`). Ela antecipa a de CPU quando chegam muitas requisições leves: no ensaio de carga ([evidencias.md](evidencias.md)) eram ~10 400 req/min no ALB, ou seja, ~5 200 por task com 2 tasks — com alvo 1500 o chat já pede ~7 tasks pelo volume, antes de a CPU média subir.
+Com duas políticas no mesmo serviço, o Application Auto Scaling escala para fora quando **qualquer uma** pede e só escala para dentro quando **todas** permitem. A de requisições usa como `resource_label` os sufixos dos ARNs do ALB e do target group (`app/<alb>/<id>/targetgroup/<tg>/<id>`). Ela cobre o caso que a CPU não enxerga: uma conversa real fica 1 a 3 s esperando o LLM, com a task ociosa, então a CPU fica baixa mesmo com o chat cheio. O alvo de 600 req/task/min (10 req/s por task) foi calibrado no ensaio da versão B ([evidencias.md](evidencias.md)): o primeiro valor, 1500, não disparou com ~70 req/s de requisições leves em 3 tasks (~1 400 por task), enquanto a CPU ficava entre 10% e 37%.
 
 No worker o alvo caiu de 100 (Ohio) para 20 mensagens por task e o scale-out ficou com 30 s: no ensaio, a escala de 1 → 4 chegou só depois da fila vazia, por causa do atraso das métricas do SQS. Com alvo menor o primeiro passo de escala vem mais cedo; o scale-in continua com 120 s para não oscilar.
 

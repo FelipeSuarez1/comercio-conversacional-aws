@@ -110,7 +110,7 @@ variable "chat_api_cpu_alvo" {
 variable "chat_api_requisicoes_por_task" {
   description = "Alvo de requisições por task por minuto (ALBRequestCountPerTarget) do chat-api."
   type        = number
-  default     = 1500
+  default     = 600
 }
 
 variable "worker_backlog_por_task" {
