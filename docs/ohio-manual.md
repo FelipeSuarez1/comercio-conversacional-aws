@@ -834,6 +834,38 @@ aws cloudwatch set-alarm-state --alarm-name $PREFIXO-dlq-com-mensagens \
   --state-value ALARM --state-reason "Teste manual da notificacao"
 ```
 
+### Upgrade para B: limiares calibrados e imagens novas
+
+Os limiares acima são os da versão C. Depois dos testes de carga ([evidencias.md](evidencias.md)), os alarmes foram recalibrados com os mesmos valores do Terraform (justificativa por alarme em [terraform.md](terraform.md#alarmes)):
+
+| Alarme | Versão C | Versão B |
+|---|---|---|
+| `*-tasks-abaixo` | 3 min | 5 min (o scale-in e a reposição de task levam até ~3 min) |
+| `asg-instancias-abaixo` | 2 min | 3 min |
+| `tg-hosts-nao-saudaveis` | 2 min | 3 min |
+| `alb-5xx` | ≥ 5 respostas 5XX em 1 min | > 1% das respostas por 2 min, só com ≥ 20 requisições/min (métrica calculada) |
+| `fila-mensagem-antiga` | > 300 s | > 600 s por 2 min |
+| Filtro `erros` do log | `ERROR` | `?ERROR ?CRITICAL` (casa as linhas JSON com `"nivel": "ERROR"`) |
+
+Para alterar um alarme existente, basta repetir o `put-metric-alarm` com o mesmo nome e os valores novos (ele sobrescreve). Exemplo do `alb-5xx`:
+
+```bash
+LB=${ALB_ARN#*:loadbalancer/}
+M() { echo "{\"Id\":\"$1\",\"ReturnData\":false,\"MetricStat\":{\"Metric\":{\"Namespace\":\"AWS/ApplicationELB\",\"MetricName\":\"$2\",\"Dimensions\":[{\"Name\":\"LoadBalancer\",\"Value\":\"$LB\"}]},\"Period\":60,\"Stat\":\"Sum\"}}"; }
+aws cloudwatch put-metric-alarm --alarm-name $PREFIXO-alb-5xx \
+  --alarm-description "Mais de 1% das respostas do ALB com 5XX por 2 min" \
+  --comparison-operator GreaterThanThreshold --threshold 1 --evaluation-periods 2 --datapoints-to-alarm 2 \
+  --treat-missing-data notBreaching --alarm-actions $TOPICO_ARN \
+  --metrics "[$(M requisicoes RequestCount),$(M erros_task HTTPCode_Target_5XX_Count),$(M erros_alb HTTPCode_ELB_5XX_Count),
+    {\"Id\":\"total\",\"Expression\":\"FILL(requisicoes, 0) + FILL(erros_alb, 0)\",\"ReturnData\":false},
+    {\"Id\":\"taxa_5xx\",\"Expression\":\"IF(total >= 20, 100 * (FILL(erros_task, 0) + FILL(erros_alb, 0)) / total, 0)\",\"Label\":\"Respostas 5XX (%)\",\"ReturnData\":true}]"
+aws logs put-metric-filter --log-group-name /ecs/$PREFIXO/order-worker --filter-name $PREFIXO-order-worker-erros \
+  --filter-pattern '?ERROR ?CRITICAL' \
+  --metric-transformations metricName=ErrosNoLog,metricNamespace=Cafe,metricValue=1,defaultValue=0
+```
+
+Imagens da versão B (tools `consultar_estoque`/`consultar_pedido` e logs JSON): repita o build e push do passo 7 com o novo `TAG`, registre uma revisão nova de cada task definition trocando só o `image` e rode `aws ecs update-service --task-definition <família>:<revisão nova>`. O ECS faz o rolling update sem derrubar o ALB.
+
 ---
 
 ## Teste final
