@@ -11,6 +11,8 @@ output "subnets_publicas" {
 output "subnets_privadas" {
   description = "IDs das 2 sub-redes privadas (instâncias ECS)."
   value       = aws_subnet.privada[*].id
+  # Com um único apply, as EC2 só sobem depois da rota para o NAT (sem ela não entram no cluster)
+  depends_on = [aws_route.privada_nat, aws_route_table_association.privada]
 }
 
 output "sg_alb_id" {

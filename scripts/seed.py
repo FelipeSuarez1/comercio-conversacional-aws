@@ -23,6 +23,8 @@ import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
 
 # Preço em centavos de um pacote de 250 g; estoque em pacotes.
+# Na AWS o catálogo inicial é criado pelo Terraform (infra/modules/data/catalogo.tf),
+# com os mesmos dados: ao mudar um, mude o outro.
 PRODUTOS = [
     {
         "produto_id": "brasil-cerrado-mineiro",

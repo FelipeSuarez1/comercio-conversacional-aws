@@ -47,3 +47,9 @@ variable "log_groups" {
   description = "Log groups da aplicação que recebem o metric filter de ERROR"
   type        = list(string)
 }
+
+variable "email_alertas" {
+  description = "E-mail assinado no tópico de alertas; vazio = sem assinatura"
+  type        = string
+  default     = ""
+}

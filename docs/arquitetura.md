@@ -65,7 +65,7 @@ flowchart LR
 | Responsabilidade | Front, endpoint `/chat`, orquestra o LLM e as tools, grava conversa e pedido `PENDENTE` | Consome a fila, reserva estoque, confirma ou rejeita o pedido |
 | Entrada | ALB (síncrono) | SQS (assíncrono) |
 | Perfil de carga | I/O intenso, latência dominada pelo LLM, muitas conexões abertas | Rajadas curtas conforme a fila |
-| Métrica de escala | CPU média 60% (target tracking) | Mensagens visíveis na fila por task (target tracking, alvo 100) |
+| Métrica de escala | CPU média 60% (target tracking); em sa-east-1 também `ALBRequestCountPerTarget` 1500 req/task/min | Mensagens visíveis na fila por task (target tracking, alvo 100 em Ohio; 20 com scale-out de 30 s em sa-east-1) |
 | Tasks min / max | 2 / 8 | 1 / 4 |
 | Health check | `GET /health` no target group | `healthCheck` do container (heartbeat do loop de consumo) |
 
@@ -144,11 +144,11 @@ Conta de capacidade: uma `t3.small` comporta cerca de 3 tasks `chat-api` + 2 `or
 | Role | Permissões |
 |---|---|
 | Instância EC2 | `AmazonEC2ContainerServiceforEC2Role` + `AmazonSSMManagedInstanceCore` |
-| Execução das tasks | Pull no ECR, escrita em logs, leitura **apenas** do segredo da chave do LLM |
+| Execução das tasks | Pull no ECR, escrita em logs, leitura **apenas** do segredo da chave do LLM. Em sa-east-1, política própria no lugar da `AmazonECSTaskExecutionRolePolicy`: ECR só nos 2 repositórios, logs só em `/ecs/<prefixo>/*` (`*` só em `ecr:GetAuthorizationToken`) |
 | Task `chat-api` | Leitura em `produtos`; leitura/escrita em `conversas` e `pedidos`; `sqs:SendMessage` na fila de pedidos |
 | Task `order-worker` | `sqs:ReceiveMessage/DeleteMessage/GetQueueAttributes` na fila; `dynamodb:GetItem` em `pedidos`; `dynamodb:UpdateItem` em `produtos` e `pedidos` (cobre o `TransactWriteItems`) |
 
-Chave do LLM no Secrets Manager, injetada pelo ECS no campo `secrets` da task definition — nunca em código, imagem ou `.tfvars`. O Terraform cria só o recipiente do segredo; o valor é gravado com `put-secret-value` e não passa pelo state.
+Chave do LLM no Secrets Manager, injetada pelo ECS no campo `secrets` da task definition — nunca em código, imagem ou `.tfvars`. O Terraform grava o valor como atributo write-only (`secret_string_wo`), lido de `TF_VAR_llm_api_key`: chega à AWS mas não fica no plano nem no state.
 
 Nomes: IAM é global na conta, então no Terraform as roles e o instance profile levam a região (`cafe-sa-east-1-ecs-instance-role`, `cafe-sa-east-1-chat-api-task` etc.) para não colidir com as de Ohio, criadas à mão como `cafe-...`.
 
@@ -156,23 +156,24 @@ Nomes: IAM é global na conta, então no Terraform as roles e o instance profile
 
 - **Logs**: um log group por serviço (`/ecs/cafe/<serviço>`, driver `awslogs`, retenção de 7 dias), em texto simples (`data nível logger mensagem`). Logs em JSON com `conversa_id`, `pedido_id` e `request_id` para correlacionar chat → fila → worker: **(B, não implementado)**.
 - **Container Insights** ligado no cluster.
-- **Alarmes**: 10 alarmes, todos publicando no tópico SNS `cafe-alertas`. Em Ohio o e-mail do grupo foi assinado à mão (passo 12.1 do [ohio-manual.md](ohio-manual.md)); em São Paulo o Terraform cria o tópico **sem assinatura**. Notificação por e-mail gerenciada no código: **(B, não implementado)**.
+- **Alarmes**: 10 alarmes, todos publicando no tópico SNS `cafe-alertas`. Em Ohio o e-mail do grupo foi assinado à mão (passo 12.1 do [ohio-manual.md](ohio-manual.md)); em São Paulo a assinatura é criada pelo Terraform quando `email_alertas` está definido (B).
 
 | Área | Alarme | Quantidade |
 |---|---|---|
-| Tasks | `DesiredTaskCount - RunningTaskCount` > 0 por 3 min (Container Insights), por serviço | 2 |
+| Tasks | `DesiredTaskCount - RunningTaskCount` > 0 por 3 min (Container Insights), por serviço; 5 min em sa-east-1 | 2 |
 | Cluster | Reserva de CPU e de memória > 85% por 5 min | 2 |
-| ASG | `GroupInServiceInstances` < mínimo (2) | 1 |
-| ALB | `HTTPCode_Target_5XX_Count` ≥ 5 em 1 min; `UnHealthyHostCount` > 0 | 2 |
-| Fila | Idade da mensagem mais antiga > 5 min; DLQ com mensagens > 0 | 2 |
-| Aplicação | Metric filter sobre linhas com `ERROR` nos 2 log groups (métrica `Cafe/ErrosNoLog`), soma > 0 | 1 |
+| ASG | `GroupInServiceInstances` < mínimo (2); por 3 min em sa-east-1 | 1 |
+| ALB | `HTTPCode_Target_5XX_Count` ≥ 5 em 1 min (sa-east-1: 5XX > 1% das respostas por 2 min); `UnHealthyHostCount` > 0 (3 min em sa-east-1) | 2 |
+| Fila | Idade da mensagem mais antiga > 5 min (sa-east-1: > 10 min por 2 min); DLQ com mensagens > 0 | 2 |
+| Aplicação | Metric filter sobre linhas com `ERROR` nos 2 log groups (métrica `Cafe/ErrosNoLog`), soma > 0; em sa-east-1 o padrão é `?ERROR ?CRITICAL`, que casa com log em texto ou JSON | 1 |
 
-Além desses, as políticas de target tracking criam sozinhas os alarmes `TargetTracking-*` (das tasks e do ASG); eles não notificam ninguém. Limiares calibrados com teste de carga: **(B, não implementado)**.
+Além desses, as políticas de target tracking criam sozinhas os alarmes `TargetTracking-*` (das tasks e do ASG); eles não notificam ninguém. Limiares de sa-east-1 calibrados com os testes de carga de [evidencias.md](evidencias.md) (B); justificativa por alarme em [terraform.md](terraform.md#alarmes).
 
 ## 8. Imagens e portabilidade regional
 
 - Um repositório ECR por serviço **em cada região** (`cafe/chat-api`, `cafe/order-worker`).
-- Build e push com `docker build --platform linux/amd64` + `docker push`, tag = hash curto do commit, para o ECR da região em uso (passo 7 do [ohio-manual.md](ohio-manual.md) e passo 3.2 do [terraform.md](terraform.md)). São Paulo nunca referencia o ECR de Ohio. Script `build-and-push` disparado pelo próprio `terraform apply`: **(B, não implementado)**; na versão C o build/push é feito antes do `apply`.
+- Em Ohio: build e push com `docker build --platform linux/amd64` + `docker push`, tag = hash curto do commit (passo 7 do [ohio-manual.md](ohio-manual.md)).
+- Em São Paulo: build e push dentro do próprio `terraform apply` (módulo `images`, provider `kreuzwerker/docker`, login no ECR por token ephemeral), tag = hash dos arquivos de `app/<serviço>`; os serviços só são criados depois do push. São Paulo nunca referencia o ECR de Ohio.
 - Nada fixo no código: região, AZs, AMI, ARNs e URLs de fila chegam por variáveis de ambiente, variáveis do Terraform ou data sources.
 - State do Terraform em bucket S3 próprio (`infra/bootstrap`), com versionamento, criptografia e trava nativa (`use_lockfile`).
 

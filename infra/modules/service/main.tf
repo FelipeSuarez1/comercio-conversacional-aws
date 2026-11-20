@@ -159,12 +159,44 @@ resource "aws_appautoscaling_policy" "cpu" {
 
   target_tracking_scaling_policy_configuration {
     target_value       = var.escala_cpu_alvo
-    scale_out_cooldown = 60
-    scale_in_cooldown  = 120
+    scale_out_cooldown = var.escala_cooldown_saida
+    scale_in_cooldown  = var.escala_cooldown_entrada
     disable_scale_in   = false
 
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+  }
+}
+
+# Requisições por task vindas do ALB. Convive com a de CPU: o Application Auto Scaling
+# escala para fora quando qualquer uma pede e só escala para dentro quando todas permitem.
+resource "aws_appautoscaling_policy" "requisicoes" {
+  count = var.escala_requisicoes_alvo == null ? 0 : 1
+
+  name               = "${local.nome_completo}-req${var.escala_requisicoes_alvo}"
+  policy_type        = "TargetTrackingScaling"
+  service_namespace  = aws_appautoscaling_target.this.service_namespace
+  scalable_dimension = aws_appautoscaling_target.this.scalable_dimension
+  resource_id        = aws_appautoscaling_target.this.resource_id
+
+  target_tracking_scaling_policy_configuration {
+    target_value       = var.escala_requisicoes_alvo
+    scale_out_cooldown = var.escala_cooldown_saida
+    scale_in_cooldown  = var.escala_cooldown_entrada
+    disable_scale_in   = false
+
+    predefined_metric_specification {
+      predefined_metric_type = "ALBRequestCountPerTarget"
+      # "app/<alb>/<id>/targetgroup/<tg>/<id>"
+      resource_label = var.escala_requisicoes_rotulo
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.escala_requisicoes_rotulo != null
+      error_message = "escala_requisicoes_alvo exige escala_requisicoes_rotulo (sufixos do ARN do ALB e do target group)."
     }
   }
 }
@@ -180,8 +212,8 @@ resource "aws_appautoscaling_policy" "metrica" {
 
   target_tracking_scaling_policy_configuration {
     target_value       = var.escala_metrica_customizada.alvo
-    scale_out_cooldown = 60
-    scale_in_cooldown  = 120
+    scale_out_cooldown = var.escala_cooldown_saida
+    scale_in_cooldown  = var.escala_cooldown_entrada
     disable_scale_in   = false
 
     customized_metric_specification {

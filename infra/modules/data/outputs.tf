@@ -47,6 +47,13 @@ output "dlq_nome" {
 }
 
 output "segredo_arn" {
-  description = "ARN do segredo (recipiente sem valor)"
+  description = "ARN do segredo da chave do LLM"
   value       = aws_secretsmanager_secret.llm_api_key.arn
+  # Quem usa o segredo (task do chat-api) espera ele ter um valor
+  depends_on = [aws_secretsmanager_secret_version.llm_api_key]
+}
+
+output "catalogo_ids" {
+  description = "produto_id dos itens do catálogo criados pelo Terraform"
+  value       = sort(keys(aws_dynamodb_table_item.produto))
 }

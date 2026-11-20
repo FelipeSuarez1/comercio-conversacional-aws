@@ -68,12 +68,40 @@ resource "aws_iam_role" "execucao" {
   assume_role_policy = data.aws_iam_policy_document.confianca_ecs_tasks.json
 }
 
-resource "aws_iam_role_policy_attachment" "execucao" {
-  role       = aws_iam_role.execucao.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
+# Mesmas ações da AmazonECSTaskExecutionRolePolicy, mas restritas aos 2 repositórios
+# e aos log groups do projeto (a gerenciada libera ECR e logs em "*").
+data "aws_caller_identity" "atual" {}
 
-data "aws_iam_policy_document" "ler_segredo" {
+data "aws_iam_policy_document" "execucao" {
+  statement {
+    sid    = "LoginNoEcr"
+    effect = "Allow"
+    # Não aceita restrição por recurso: a AWS exige "*"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "BaixarImagensDoProjeto"
+    effect = "Allow"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+    ]
+    resources = [for r in aws_ecr_repository.repo : r.arn]
+  }
+
+  statement {
+    sid     = "EscreverLogsDoProjeto"
+    effect  = "Allow"
+    actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    # Log groups /ecs/<prefixo>/<serviço> (criados no módulo service) e seus streams
+    resources = [
+      "arn:aws:logs:${data.aws_region.atual.region}:${data.aws_caller_identity.atual.account_id}:log-group:/ecs/${var.prefixo}/*:*",
+    ]
+  }
+
   statement {
     sid       = "LerSomenteOSegredoDoLLM"
     effect    = "Allow"
@@ -82,10 +110,10 @@ data "aws_iam_policy_document" "ler_segredo" {
   }
 }
 
-resource "aws_iam_role_policy" "ler_segredo" {
-  name   = "${var.prefixo}-ler-segredo-llm"
+resource "aws_iam_role_policy" "execucao" {
+  name   = "${var.prefixo}-execucao-tasks"
   role   = aws_iam_role.execucao.id
-  policy = data.aws_iam_policy_document.ler_segredo.json
+  policy = data.aws_iam_policy_document.execucao.json
 }
 
 # ---------------------------------------------------------------- ECR

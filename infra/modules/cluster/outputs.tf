@@ -17,8 +17,8 @@ output "capacity_provider_nome" {
 output "execution_role_arn" {
   description = "ARN da role de execução das tasks"
   value       = aws_iam_role.execucao.arn
-  # Garante a inline do segredo antes de uma task tentar lê-lo
-  depends_on = [aws_iam_role_policy.ler_segredo, aws_iam_role_policy_attachment.execucao]
+  # Garante a política (ECR, logs, segredo) antes de uma task tentar usá-la
+  depends_on = [aws_iam_role_policy.execucao]
 }
 
 output "ecr_chat_api_url" {

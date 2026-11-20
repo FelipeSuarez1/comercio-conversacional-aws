@@ -23,12 +23,17 @@ output "fila_url" {
   value       = module.data.fila_url
 }
 
+output "imagens" {
+  description = "Imagens enviadas ao ECR (repositorio:tag, tag = hash do código)."
+  value       = module.images.imagens
+}
+
 output "segredo_arn" {
-  description = "ARN do segredo da chave do LLM (o valor é gravado fora do Terraform)."
+  description = "ARN do segredo da chave do LLM (valor gravado pelo Terraform como write-only)."
   value       = module.data.segredo_arn
 }
 
 output "tabela_produtos_nome" {
-  description = "Tabela do catálogo (usada pelo scripts/seed.py)."
+  description = "Tabela do catálogo (populada pelo Terraform; scripts/seed.py reseta o estoque)."
   value       = module.data.tabela_produtos_nome
 }
