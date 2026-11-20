@@ -25,19 +25,19 @@ locals {
   tag = { for nome, h in local.hash : nome => substr(h, 0, 12) }
 }
 
-resource "docker_image" "this" {
+# Build com o docker CLI da máquina que roda o apply. O build pelo provider docker
+# (resource docker_image) falha no Docker Desktop do Windows ao enviar o contexto
+# ("unpigz: corrupted -- incomplete deflate data"); o CLI funciona em qualquer SO.
+# Só refaz o build quando o hash do código muda.
+resource "terraform_data" "build" {
   for_each = var.repositorios
 
-  name         = "${each.value}:${local.tag[each.key]}"
-  keep_locally = true # não tenta apagar a imagem local ao trocar de tag
+  triggers_replace = local.hash[each.key]
 
-  build {
-    context  = local.contextos[each.key]
-    platform = var.plataforma
-  }
-
-  triggers = {
-    hash_codigo = local.hash[each.key]
+  provisioner "local-exec" {
+    # Roda dentro do contexto (".") para não depender de aspas, que cmd e sh tratam diferente
+    working_dir = abspath(local.contextos[each.key])
+    command     = "docker build --platform ${var.plataforma} -t ${each.value}:${local.tag[each.key]} ."
   }
 }
 
@@ -45,7 +45,7 @@ resource "docker_image" "this" {
 resource "docker_registry_image" "this" {
   for_each = var.repositorios
 
-  name = docker_image.this[each.key].name
+  name = "${var.repositorios[each.key]}:${local.tag[each.key]}"
 
   # Mantém a imagem antiga no ECR ao trocar de tag: um rollback do ECS ainda
   # consegue baixá-la. No destroy, o force_delete do repositório apaga tudo.
@@ -54,4 +54,6 @@ resource "docker_registry_image" "this" {
   triggers = {
     hash_codigo = local.hash[each.key]
   }
+
+  depends_on = [terraform_data.build]
 }
