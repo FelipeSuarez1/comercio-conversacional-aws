@@ -93,6 +93,38 @@ Carga: `scripts/enfileirar-pedidos.py 6000` e duas instâncias de `scripts/carga
 ![Requisições no ALB](evidencias/sa-east-1/04-requisicoes.png)
 ![Fila e DLQ](evidencias/sa-east-1/05-fila.png)
 
+## Versão B — São Paulo recriado do zero (2026-11-20)
+
+### Destroy e apply único
+
+- `terraform destroy` completo (43 recursos) e `terraform apply` a partir da conta vazia às 15:04–15:10. O apply fez sozinho o build e o push das duas imagens, a carga dos 10 cafés no DynamoDB e a gravação do segredo; o único passo fora do Terraform foi colar o valor da chave do LLM no Secrets Manager, que de propósito não fica no código nem no state.
+- Dois problemas achados e corrigidos no caminho (commits no histórico):
+  - **Destroy preso em DRAINING**: o Terraform apagava a rota pública antes dos serviços; os agentes ECS perdiam a conexão e as tasks nunca terminavam de parar. As instâncias agora dependem também da rota pública e do IGW (`infra/modules/network/outputs.tf`).
+  - **Build pelo provider docker** falhava no Docker Desktop do Windows; o build passou para o `docker` CLI chamado pelo próprio apply, e o push continua pelo provider.
+
+### Funcionalidades novas, com o LLM real
+
+- Conversa completa pelo ALB: recomendação (`buscar_produtos`), estoque (`consultar_estoque`), pedido (`criar_pedido`) e "e o meu pedido?" (`consultar_pedido`), que respondeu **CONFIRMADO** lendo a tabela de pedidos.
+- Logs JSON: o mesmo `pedido_id` e `conversa_id` aparecem no `/ecs/cafe/chat-api` (linha `tool chamada` com o nome da ferramenta) e no `/ecs/cafe/order-worker` (`pedido confirmado; estoque baixado`).
+
+### Escala por requisições e worker mais rápido (15:19 – 15:45)
+
+| Momento | O que aconteceu |
+|---|---|
+| 15:19 – 15:27 | Carga em `GET /produtos` (60 conexões) e 6000 pedidos na fila (cheia às 15:22). |
+| 15:26 | Worker 1 → 4 tasks (alvo 20 mensagens/task), ~4 min depois de a fila encher; na versão C levou ~6 min. A fila esvaziou no mesmo minuto: o atraso das métricas do SQS (1 a 5 min) continua sendo o limite. |
+| 15:27 | Chat 2 → 3 pela CPU (`/produtos` pesa na CPU, então a política de CPU disparou primeiro). |
+| 15:29 – 15:44 | Carga leve em `GET /health` (100 conexões, ~70 req/s): CPU do chat entre 10% e 37%. Com o alvo inicial de 1500 req/task/min nada aconteceu (~1 400 por task); o alvo foi recalibrado para 600. |
+| 15:38 | **`cafe-chat-api-req600` subiu o chat 3 → 6 tasks com a CPU abaixo de 40%**: o caso que a política de CPU não pega (conversa real esperando o LLM, task ociosa). |
+| 15:42 | Sem fila, scale-in do worker 4 → 3 (cooldown de 120 s). |
+
+![Tasks por serviço](evidencias/sa-east-1-b/01-tasks.png)
+![Requisições por task e CPU do chat](evidencias/sa-east-1-b/02-requisicoes-por-task.png)
+![Fila e tasks do worker](evidencias/sa-east-1-b/03-fila.png)
+![Instâncias no ASG](evidencias/sa-east-1-b/04-instancias.png)
+
+Ohio recebeu as mesmas mudanças à mão (políticas, limiares, filtro de erros e imagens novas; ver [ohio-manual.md](ohio-manual.md#upgrade-para-b-limiares-calibrados-e-imagens-novas)) e o chat respondeu com a tool `consultar_estoque` e logs JSON.
+
 ## Resumo
 
 | Requisito demonstrado | Ohio (manual) | São Paulo (Terraform) |
@@ -104,3 +136,6 @@ Carga: `scripts/enfileirar-pedidos.py 6000` e duas instâncias de `scripts/carga
 | Task defeituosa, ALB sem erro | 60/60 ok | 60/60 ok |
 | Instância perdida, recuperação | ~1,5 min | ~1 min |
 | Mensagem inválida na DLQ + alarme | sim (18:04) | sim (18:33) |
+| Escala por requisições no ALB (B, alvo 600) | configurada | chat 3 → 6 com CPU < 40% (20/11 15:38) |
+| Worker com alvo 20 e scale-out em 30 s (B) | configurado | 1 → 4 em ~4 min (C: ~6 min) |
+| Destroy completo + apply único do zero (B) | — | sim (20/11, 43 destruídos; recriado com build, catálogo e segredo) |
