@@ -11,8 +11,17 @@ output "subnets_publicas" {
 output "subnets_privadas" {
   description = "IDs das 2 sub-redes privadas (instâncias ECS)."
   value       = aws_subnet.privada[*].id
-  # Com um único apply, as EC2 só sobem depois da rota para o NAT (sem ela não entram no cluster)
-  depends_on = [aws_route.privada_nat, aws_route_table_association.privada]
+  # As EC2 dependem do caminho de saída inteiro (rota privada -> NAT -> rota pública -> IGW).
+  # No apply, só sobem depois dele (sem saída não entram no cluster). No destroy, a ordem
+  # inverte: serviços, Capacity Provider e ASG somem antes das rotas. Sem a parte pública
+  # aqui, o destroy apagava a rota do IGW cedo, os agentes ECS perdiam a conexão e os
+  # serviços ficavam presos em DRAINING.
+  depends_on = [
+    aws_route.privada_nat,
+    aws_route_table_association.privada,
+    aws_route.publica_internet,
+    aws_route_table_association.publica,
+  ]
 }
 
 output "sg_alb_id" {
