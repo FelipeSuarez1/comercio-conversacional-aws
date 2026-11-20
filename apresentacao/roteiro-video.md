@@ -4,21 +4,30 @@ Duração-alvo: **13 min 30 s** (mínimo 10, máximo 15). Uma pessoa por etapa, 
 
 | Etapa | Quem | Tempo | Tela principal |
 |---|---|---|---|
-| 1. Startup e proposta de valor | Pessoa 1 | 1:30 | Slides da etapa 1 |
-| 2. Demonstração real | Pessoa 2 | 2:00 | Página da aplicação no navegador |
-| 3. Diagrama de arquitetura | Pessoa 3 | 2:00 | Slide do diagrama |
-| 4. Navegação pelo Console AWS | Pessoa 4 | 2:30 | Console AWS em **sa-east-1** |
-| 5. Conceitos e decisões | Pessoa 5 | 3:30 | Slides da etapa 5 + trechos do Terraform no VS Code |
-| 6. Falhas e recuperação | Pessoa 6 | 2:00 | Slides da etapa 6 + gráficos de evidência |
+| 1. Startup e proposta de valor | **Felipe Suarez** | 1:30 | PPT, slides 1 a 4 |
+| 2. Demonstração real | **David Chung** | 2:00 | Slide 5 e depois a página da aplicação no navegador |
+| 3. Diagrama de arquitetura | **Luiz Pinheiro** | 2:00 | PPT, slides 6 a 8 |
+| 4. Navegação pelo Console AWS | **Lenny Wajcberg** (narra) + **Felipe** (compartilha o console) | 2:30 | Slide 9 e depois o console AWS em **sa-east-1** |
+| 5. Conceitos e decisões | **Ricardo Peano** | 3:30 | PPT, slides 10 a 15, alternando com o código no VS Code |
+| 6. Falhas e recuperação | **Fernando Mentone** | 2:00 | PPT, slides 16 a 19 |
 
-As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O professor pode perguntar qualquer parte para qualquer pessoa, então todos devem ler o roteiro inteiro.
+As falas abaixo são uma base: **falem com as próprias palavras**, sem ler.
+
+## Como gravar (Teams)
+
+1. **Felipe** cria a reunião no Teams com a conta do Insper; todos entram com **câmera ligada**, e o Felipe clica em **Gravar**.
+2. Na sua vez, cada pessoa clica em **Compartilhar → Janela** (não a tela inteira) e escolhe o PowerPoint em modo apresentação, o navegador ou o VS Code. Ao terminar, para de compartilhar e chama a próxima pessoa pelo nome.
+3. Todos abrem o PPT (`apresentacao/apresentacao-video.pptx`) já no slide da sua etapa antes de começar.
+4. **Só o Felipe tem acesso à conta AWS.** Na Etapa 4, o Felipe compartilha o console e clica, enquanto o Lenny narra seguindo a tabela.
+5. Errou? Pare e recomece a frase ou a etapa; o trecho errado é cortado depois no Clipchamp.
+6. No fim, o Felipe para a gravação, baixa o MP4 (chat da reunião → gravação → **Download**), corta os erros e exporta em 1080p. Conferir a duração: **10 a 15 min**. O professor pode perguntar qualquer parte para qualquer pessoa, então todos devem ler o roteiro inteiro.
 
 ---
 
 ## Antes de gravar (checklist)
 
 - [ ] Ambiente de São Paulo no ar: abrir `http://cafe-alb-170785092.sa-east-1.elb.amazonaws.com/` e ver a tabela de catálogo carregada.
-- [ ] Estoque reposto (o Cerrado Mineiro deve mostrar 50). Se não, peça para rodar o seed de novo.
+- [ ] Estoque reposto: na página, **Etiópia Yirgacheffe = 20** e Cerrado Mineiro = 50. Se não estiver, peça ao Felipe para repor (ele roda o `scripts/seed.py`). **Ninguém testa compras depois da reposição**, senão os números da demo mudam.
 - [ ] Console AWS logado e com a região **South America (São Paulo) sa-east-1** selecionada.
 - [ ] Abrir as abas do console **antes** de gravar (lista na Etapa 4), para não perder tempo carregando.
 - [ ] Zoom do navegador em **125%–150%** e do VS Code com fonte ≥ 18. Feche notificações, e-mail e WhatsApp Web.
@@ -28,9 +37,13 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 ---
 
-## Etapa 1 — Startup e proposta de valor (Pessoa 1, 1:30)
+## Etapa 1 — Startup e proposta de valor (Felipe Suarez, 1:30)
 
-**Na tela:** slides "Capa" → "Problema" → "Solução e diferenciais" → "Modelo de negócio". Troque de slide no ritmo da fala.
+**Passo a passo na tela:**
+1. Compartilhe o PowerPoint em modo apresentação, no **slide 1 (capa)**. Apresente o grupo em uma frase.
+2. **Slide 2 (problema):** fale o 1º e o 2º parágrafos da fala.
+3. **Slide 3 (solução):** fale o 3º parágrafo e os diferenciais.
+4. **Slide 4 (para quem e como ganhamos):** público e modelo de receita. Termine passando a palavra para o David.
 
 **Fala:**
 
@@ -48,11 +61,13 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 ---
 
-## Etapa 2 — Demonstração real da aplicação (Pessoa 2, 2:00)
+## Etapa 2 — Demonstração real da aplicação (David Chung, 2:00)
 
-**Na tela:** navegador em `http://cafe-alb-170785092.sa-east-1.elb.amazonaws.com/`, zoom 125%. Deixe a conversa e o catálogo visíveis lado a lado.
+**Antes da sua vez:** deixe o navegador aberto em `http://cafe-alb-170785092.sa-east-1.elb.amazonaws.com/`, com zoom de 125% (Ctrl e +), e confira que o Etiópia mostra 20 na tabela da direita. Não digite nada antes de gravar.
 
-**Passo a passo (digite estas mensagens):**
+**Passo a passo na tela:**
+- Comece no **slide 5** por 10 s ("vamos ver isso funcionando de verdade") e troque o compartilhamento para o **navegador**.
+- Deixe a conversa (esquerda) e o catálogo (direita) visíveis ao mesmo tempo. Digite estas mensagens, uma de cada vez, esperando a resposta:
 1. `Oi! Gosto de café frutado e faço no coado. O que você recomenda?`
 2. `Quanto tem em estoque do Etiópia Yirgacheffe?`
 3. `Quero 3 pacotes do Etiópia.`
@@ -80,9 +95,12 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 ---
 
-## Etapa 3 — Diagrama de arquitetura (Pessoa 3, 2:00)
+## Etapa 3 — Diagrama de arquitetura (Luiz Pinheiro, 2:00)
 
-**Na tela:** slide do diagrama (e o slide "Caminho de uma requisição"). Use o cursor ou o apontador do PowerPoint para seguir cada seta enquanto fala.
+**Passo a passo na tela:**
+1. **Slide 6 (rede e entrada):** com o mouse (ou Ctrl+L, o apontador laser do PowerPoint), siga Usuário → Internet → ALB → instâncias e mostre o NAT saindo para a API do LLM. Fale os 3 primeiros parágrafos.
+2. **Slide 7 (dados, fila e serviços de apoio):** aponte DynamoDB, SQS + DLQ, ECR, Secrets Manager, CloudWatch e IAM. Fale o último parágrafo.
+3. **Slide 8 (caminho de uma requisição):** passe pelos passos 1 a 4 (síncrono, à esquerda) e 5 e 6 (assíncrono, à direita). Fale o 4º e o 5º parágrafos. Termine passando para o Lenny.
 
 **Fala:**
 
@@ -100,9 +118,11 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 ---
 
-## Etapa 4 — Navegação pelo Console AWS (Pessoa 4, 2:30)
+## Etapa 4 — Navegação pelo Console AWS (Lenny Wajcberg narra, Felipe clica, 2:30)
 
-**Na tela:** console AWS em **sa-east-1**. Abra as abas antes, nesta ordem, e passe ~12 s em cada uma. Em cada recurso, mostre **uma configuração concreta** (não só a página inicial).
+**Antes de gravar (Felipe):** entrar no console, trocar a região para **São Paulo (sa-east-1)** no canto superior direito e abrir **uma aba do navegador para cada linha da tabela abaixo**, já na tela indicada. Não abrir o menu da conta (canto superior direito), para o ID da conta não aparecer.
+
+**Passo a passo na tela:** o Lenny mostra o **slide 9** por 10 s ("vamos ver cada um desses recursos no console") e o Felipe passa a compartilhar o navegador. A cada aba, o Lenny diz a frase da última coluna enquanto o Felipe aponta com o mouse o que está na coluna "O que mostrar" (~10 s por aba).
 
 | # | Onde clicar | O que mostrar | O que falar (curto) |
 |---|---|---|---|
@@ -125,15 +145,21 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 ---
 
-## Etapa 5 — Conceitos, decisões de design e integração (Pessoa 5, 3:30)
+## Etapa 5 — Conceitos, decisões de design e integração (Ricardo Peano, 3:30)
 
-**Na tela:** 4 slides da etapa 5 (um por tema). Em cada tema, mostre um trecho no VS Code por ~10 s (arquivos indicados).
+**Antes da sua vez:** abra a pasta do projeto no VS Code com fonte grande (Ctrl e + até ~18) e deixe abertos, em abas, os 4 arquivos citados abaixo, cada um já rolado até o trecho indicado.
+
+**Passo a passo na tela:** em cada tema, mostre primeiro o slide (~30 s) e depois troque para o VS Code no arquivo indicado (~10 s), apontando o trecho com o mouse.
+1. **Slide 10 + `infra/modules/network/main.tf`** → tema "Rede e comunicação".
+2. **Slide 11 + `infra/envs/sa-east-1/main.tf`** → tema "Containers e elasticidade". Em seguida, **slides 14 e 15**: a tabela e o gráfico que provam a escala.
+3. **Slide 12 + `app/order-worker/processador.py`** → tema "Dados, mensageria e segurança".
+4. **Slide 13 + lista de pastas em `infra/modules/`** → tema "Terraform e decisões". Termine passando para o Fernando.
 
 **Rede e comunicação** — mostrar `infra/modules/network/main.tf` (regras dos security groups)
 
 > A entrada é só pela porta 80 do ALB. O security group do ALB só pode sair para o das instâncias, e o das instâncias só aceita as portas dinâmicas 32768 a 65535 vindas do ALB — é um encadeamento de security groups, sem liberar nada por IP. As instâncias estão em sub-redes privadas: para sair à internet, só HTTPS 443 pelo NAT, que usamos para o LLM, a fila e o ECR. DynamoDB e S3 usam endpoints gateway, que são gratuitos e não passam pelo NAT.
 
-**Containers e elasticidade** — mostrar `infra/envs/sa-east-1/main.tf` (bloco do `chat_api` com cpu, memória e `escala_cpu_alvo`)
+**Containers e elasticidade** — mostrar `infra/envs/sa-east-1/main.tf` (bloco do `chat_api`, linhas ~150–165: cpu, memória, `escala_cpu_alvo` e `escala_requisicoes_alvo`)
 
 > Cada serviço é uma imagem Docker no ECR. A rede é *bridge* com porta de host dinâmica, então várias tasks do chat cabem na mesma instância, e o ALB registra cada uma na sua porta. Reservamos CPU e memória por task — o chat reserva 384 MB — e é essa reserva que o ECS usa para decidir onde a task cabe.
 >
@@ -155,9 +181,13 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 ---
 
-## Etapa 6 — Falhas, riscos e recuperação de desastres (Pessoa 6, 2:00)
+## Etapa 6 — Falhas, riscos e recuperação de desastres (Fernando Mentone, 2:00)
 
-**Na tela:** slide da matriz de falhas → gráficos de `docs/evidencias.md` (instâncias e tasks) → slide "Alta disponibilidade ≠ recuperação de desastres".
+**Passo a passo na tela:**
+1. **Slide 16 (matriz de falhas):** percorra as linhas Task, EC2, AZ, DynamoDB e Região enquanto fala os parágrafos de "Task do chat cai" até "Falha de dados ou da região".
+2. **Slide 17 (o que existe e o que é proposta):** esquerda = o que já funciona e foi testado; direita = melhorias.
+3. **Slide 18 (HA ≠ DR):** fale o último parágrafo, que é a resposta objetiva à pergunta da etapa.
+4. **Slide 19 (Obrigado!):** encerre o vídeo em nome do grupo.
 
 **Fala:**
 
@@ -171,7 +201,7 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 >
 > **Queda de uma zona inteira:** as tasks estão espalhadas nas duas zonas, então o serviço continua — mas o NAT está numa zona só, então perderíamos a saída para o LLM. A melhoria é um NAT por zona.
 >
-> **Falha de dados ou da região:** o DynamoDB já é replicado entre zonas pela AWS, mas não ativamos backup contínuo. Se a região inteira cair, o Terraform recria tudo em outra região em cerca de 15 a 20 minutos, mas os dados não iriam junto.
+> **Falha de dados ou da região:** o DynamoDB já é replicado entre zonas pela AWS, mas não ativamos backup contínuo. Se a região inteira cair, o Terraform recria tudo em outra região com um único comando (medimos 89 recursos em menos de 3 minutos), mas os dados não iriam junto.
 >
 > Então, a resposta objetiva: hoje temos **alta disponibilidade dentro da região** — sobrevivemos a falha de task, de instância e, parcialmente, de zona, sem intervenção. Isso **não é** uma estratégia completa de recuperação de desastres. Para uma startup real, as prioridades seriam: backup contínuo do DynamoDB, um NAT por zona, alarmes com notificação para a equipe de plantão e, depois, réplica dos dados em outra região com Global Tables, definindo metas de tempo e de perda de dados aceitáveis.
 
