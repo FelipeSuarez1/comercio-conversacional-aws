@@ -27,9 +27,15 @@ output "subnets_privadas" {
 output "sg_alb_id" {
   description = "ID do security group do ALB."
   value       = aws_security_group.alb.id
+  # Quem usa o SG (ALB) só existe com as regras criadas e é destruído antes delas
+  depends_on = [aws_vpc_security_group_ingress_rule.alb_http, aws_vpc_security_group_egress_rule.alb_para_ecs]
 }
 
 output "sg_ecs_id" {
   description = "ID do security group das instâncias ECS."
   value       = aws_security_group.ecs.id
+  # Launch template -> ASG -> Capacity Provider -> serviços dependem das regras. Sem isso
+  # o destroy apagava a saída HTTPS cedo, os agentes ECS perdiam a conexão e os
+  # serviços ficavam presos em DRAINING.
+  depends_on = [aws_vpc_security_group_egress_rule.ecs_https, aws_vpc_security_group_ingress_rule.ecs_do_alb]
 }
