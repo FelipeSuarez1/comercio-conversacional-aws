@@ -147,7 +147,7 @@ Os dois ambientes estão ligados. O NAT Gateway, o ALB e as EC2 cobram por hora.
 1. **São Paulo:** `terraform -chdir=infra/envs/sa-east-1 destroy` (o destroy foi corrigido e roda limpo em ~6 min).
 2. **Ohio:** pausar (tasks e ASG a zero) ou desmontar, conforme a seção "Desligar para economizar" do [ohio-manual.md](docs/ohio-manual.md).
 3. Conferir no console (Billing) que não sobrou nada cobrando.
-4. **Apagar o usuário IAM `lenny-wajcberg-leitura`** (criado em 20/11 só para o Lenny mostrar o console no vídeo: leitura apenas, sem acesso ao valor de segredos). Console → IAM → Users → selecionar → Delete.
+4. **Apagar os usuários IAM `lenny-wajcberg-leitura` e `luiz-pinheiro-leitura`** (criados em 20/11 só para o vídeo: leitura apenas, sem acesso ao valor de segredos). Console → IAM → Users → selecionar → Delete.
 
 ## 9. Problemas encontrados e como foram resolvidos
 
