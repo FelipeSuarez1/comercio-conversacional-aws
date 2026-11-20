@@ -114,7 +114,7 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 | 6 | Cluster → aba **Infrastructure** | Capacity provider `cafe-cp`, target 100%, instâncias registradas | "Segundo nível: o Capacity Provider pede mais EC2 quando as tasks não cabem." |
 | 7 | EC2 → Auto Scaling groups → `cafe-asg` | Mín. 2, máx. 4, 2 AZs, *scale-in protection* | "O ASG cria as máquinas a partir do launch template com a AMI otimizada para ECS." |
 | 8 | ECR → Repositories → `cafe/chat-api` | Imagem com a tag do commit | "As imagens que o ECS baixa ao iniciar uma task." |
-| 9 | DynamoDB → Tables → `cafe-pedidos` → **Explore items** | O pedido criado na demonstração, com status CONFIRMADO. A tabela tem milhares de pedidos do teste de carga: em **Scan**, adicione o filtro `pedido_id` = ID copiado do cartão do pedido na página | "Persistência: o pedido que acabamos de criar está aqui." |
+| 9 | DynamoDB → Tables → `cafe-pedidos` → **Explore items** | O pedido criado na demonstração, com status CONFIRMADO. Se houver vários pedidos, em **Scan** filtre por `pedido_id` (o ID aparece no cartão do pedido na página) | "Persistência: o pedido que acabamos de criar está aqui." |
 | 10 | SQS → `cafe-pedidos` → aba **Dead-letter queue** | DLQ `cafe-pedidos-dlq`, *maximum receives* 3 | "Fila desacopla o pedido do processamento; falhou 3 vezes, vai para a DLQ." |
 | 11 | IAM → Roles → buscar `cafe-sa-east-1` | 4 roles: instância, execução, chat-api-task, order-worker-task | "Cada componente só tem a permissão de que precisa." |
 | 12 | Secrets Manager → `cafe/llm-api-key` (**não** clicar em *Retrieve*) | Só a página de detalhes | "A chave do LLM fica aqui e é injetada na task pela role de execução; nunca está no código." |
