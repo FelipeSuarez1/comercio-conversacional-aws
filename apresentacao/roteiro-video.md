@@ -58,7 +58,7 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 3. `Quero 3 pacotes do Etiópia.`
 4. Se a IA pedir confirmação: `Pode confirmar.`
 5. Aponte o cartão do pedido mudando de **PENDENTE** para **CONFIRMADO** e o estoque do Etiópia caindo de 20 para 17 na tabela (a linha pisca).
-6. (Opcional, 10 s) Abra numa aba nova `.../pedidos/<ID do pedido>` para mostrar o registro salvo.
+6. `E o meu pedido, já foi confirmado?` — a IA consulta o pedido no banco e responde com o status real.
 
 **Fala (enquanto digita e espera):**
 
@@ -66,11 +66,13 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 >
 > Vou pedir uma recomendação. Repare que o vendedor não inventa produtos: ele chama a ferramenta **buscar_produtos**, que consulta a tabela de produtos no DynamoDB, e responde com cafés, preços e notas que existem de verdade no catálogo — o mesmo que aparece aqui à direita.
 >
-> Agora pergunto o estoque: ele responde com o número real da tabela.
+> Agora pergunto o estoque: ele chama a ferramenta **consultar_estoque** e responde com o número real da tabela.
 >
 > Vou pedir 3 pacotes. A IA chama a ferramenta **criar_pedido**, que calcula o total com o desconto de 10% e grava o pedido como PENDENTE. O pedido vai para uma fila, e um segundo serviço, o worker, baixa o estoque e confirma.
 >
 > Aqui o pedido passou para **CONFIRMADO**, e o estoque do Etiópia caiu de 20 para 17 na tabela — isso é lido do banco a cada 3 segundos, então prova que a operação foi persistida.
+>
+> Por fim, pergunto pelo pedido: a IA usa a quarta ferramenta, **consultar_pedido**, e lê o status direto da tabela de pedidos. São quatro ferramentas no total: buscar produtos, consultar estoque, criar pedido e consultar pedido.
 >
 > Para o cliente, a jornada é: tirar dúvida, receber recomendação e comprar numa única conversa, sem navegar por catálogo.
 
@@ -108,7 +110,7 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 | 2 | VPC → Security groups → `cafe-ecs-sg` → **Inbound rules** | Portas 32768–65535 com origem `cafe-alb-sg` | "As instâncias só aceitam tráfego vindo do security group do ALB." |
 | 3 | EC2 → Load balancers → `cafe-alb` → **Listeners**; depois Target groups → `cafe-chat-api-tg` → **Targets** | Listener 80; 2 targets *healthy* em portas altas, health check `/health` | "O ALB distribui entre as tasks e só manda tráfego para quem passa no health check." |
 | 4 | ECS → Clusters → `cafe-cluster` → **Services** | `cafe-chat-api` 2/2 e `cafe-order-worker` 1/1 | "Dois serviços no mesmo cluster, cada um com sua escala." |
-| 5 | Serviço `cafe-chat-api` → aba **Configuration and networking** / **Service auto scaling** | Política de CPU 60%, mín. 2, máx. 8 | "Primeiro nível de elasticidade: número de tasks." |
+| 5 | Serviço `cafe-chat-api` → aba **Configuration and networking** / **Service auto scaling** | Duas políticas: CPU 60% e 1500 requisições por task no ALB; mín. 2, máx. 8 | "Primeiro nível de elasticidade: número de tasks. Sobe se qualquer política pedir." |
 | 6 | Cluster → aba **Infrastructure** | Capacity provider `cafe-cp`, target 100%, instâncias registradas | "Segundo nível: o Capacity Provider pede mais EC2 quando as tasks não cabem." |
 | 7 | EC2 → Auto Scaling groups → `cafe-asg` | Mín. 2, máx. 4, 2 AZs, *scale-in protection* | "O ASG cria as máquinas a partir do launch template com a AMI otimizada para ECS." |
 | 8 | ECR → Repositories → `cafe/chat-api` | Imagem com a tag do commit | "As imagens que o ECS baixa ao iniciar uma task." |
@@ -117,7 +119,7 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 | 11 | IAM → Roles → buscar `cafe-sa-east-1` | 4 roles: instância, execução, chat-api-task, order-worker-task | "Cada componente só tem a permissão de que precisa." |
 | 12 | Secrets Manager → `cafe/llm-api-key` (**não** clicar em *Retrieve*) | Só a página de detalhes | "A chave do LLM fica aqui e é injetada na task pela role de execução; nunca está no código." |
 | 13 | CloudWatch → Alarms → All alarms | Lista de alarmes `cafe-*` | "Alarmes para tasks abaixo do desejado, reserva do cluster, ASG, erros 5xx, fila e DLQ." |
-| 14 | CloudWatch → Log groups → `/ecs/cafe/order-worker` → stream mais recente | Linha do pedido confirmado | "Os logs mostram o worker processando o pedido da demonstração." |
+| 14 | CloudWatch → Log groups → `/ecs/cafe/order-worker` → stream mais recente | Linha JSON do pedido confirmado, com `pedido_id` e `conversa_id` | "Logs estruturados em JSON: o mesmo `conversa_id` aparece no chat e no worker, então dá para seguir um pedido de ponta a ponta." |
 
 > Se faltar tempo, junte os itens 4–6 numa passada só e pule o 14.
 
@@ -135,17 +137,19 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler. O p
 
 > Cada serviço é uma imagem Docker no ECR. A rede é *bridge* com porta de host dinâmica, então várias tasks do chat cabem na mesma instância, e o ALB registra cada uma na sua porta. Reservamos CPU e memória por task — o chat reserva 384 MB — e é essa reserva que o ECS usa para decidir onde a task cabe.
 >
-> A elasticidade tem dois níveis. Nas tasks: o chat escala por CPU média de 60% e o worker pela quantidade de mensagens na fila por task. Nas instâncias: quando uma task não cabe, ela fica pendente, e o Capacity Provider aumenta o Auto Scaling Group. No teste de carga em São Paulo, o chat foi de 2 para 8 tasks, a 8ª não coube e o ASG subiu de 2 para 4 instâncias; depois, sem carga, tudo voltou para 2 com drenagem gerenciada. Os health checks são dois: o ALB testa `/health` no chat, e o worker tem um heartbeat que o ECS verifica.
+> A elasticidade tem dois níveis. Nas tasks: o chat tem duas políticas, CPU média de 60% e 1500 requisições por task no ALB — sobe quando qualquer uma pede e só desce quando as duas permitem. O worker escala pela quantidade de mensagens na fila por task, com alvo 20 e reação em 30 segundos, porque as métricas do SQS chegam com atraso. Nas instâncias: quando uma task não cabe, ela fica pendente, e o Capacity Provider aumenta o Auto Scaling Group. No teste de carga em São Paulo, o chat foi de 2 para 8 tasks, a 8ª não coube e o ASG subiu de 2 para 4 instâncias; depois, sem carga, tudo voltou para 2 com drenagem gerenciada. Os health checks são dois: o ALB testa `/health` no chat, e o worker tem um heartbeat que o ECS verifica.
 
 **Dados, mensageria e segurança** — mostrar `app/order-worker/processador.py` (a `TransactWriteItems` com condição)
 
 > A conversa é síncrona, o processamento do pedido é assíncrono. Isso protege o cliente: se o worker estiver lento ou fora, o pedido fica na fila e é processado depois. A fila tem visibilidade de 60 segundos: se o worker cair no meio, a mensagem volta e é retentada. Como pode chegar duplicada, o worker é idempotente: baixa o estoque e confirma o pedido numa única transação, com a condição de o pedido ainda estar PENDENTE e de haver estoque — o estoque nunca fica negativo. Depois de 3 falhas, a mensagem vai para a DLQ.
 >
-> Na segurança, separamos três tipos de role: a da instância, que só registra a máquina no cluster; a de execução, que baixa a imagem, envia logs e lê o segredo; e uma role por serviço, com acesso só às tabelas e à fila de que ele precisa.
+> Na segurança, separamos três tipos de role: a da instância, que só registra a máquina no cluster; a de execução, que baixa só as nossas duas imagens, escreve só nos nossos log groups e lê só o segredo do LLM; e uma role por serviço, com acesso só às tabelas e à fila de que ele precisa. Nenhuma política usa recurso curinga, exceto o token do ECR, que a AWS não permite restringir.
+>
+> Os logs são JSON, uma linha por evento, com `conversa_id` e `pedido_id`: o mesmo identificador aparece no chat, na fila e no worker.
 
 **Terraform e decisões** — mostrar `infra/envs/sa-east-1/backend.tf` e a lista de módulos em `infra/modules/`
 
-> A etapa 1 foi feita à mão em Ohio; a etapa 2 recria tudo em São Paulo com Terraform, sem depender de Ohio. O estado fica num bucket S3 versionado com lock, criado por um bootstrap. O código é dividido em 7 módulos — rede, ALB, dados, cluster, serviço, que é reutilizado pelos dois serviços, e observabilidade — e a região e o prefixo são variáveis. Nada fica fixo: as zonas e a AMI vêm de data sources, e os nomes IAM levam a região, porque IAM é global na conta.
+> A etapa 1 foi feita à mão em Ohio; a etapa 2 recria tudo em São Paulo com Terraform, sem depender de Ohio. O estado fica num bucket S3 versionado com lock, criado por um bootstrap. O código é dividido em 7 módulos — rede, ALB, dados, imagens, cluster, serviço, que é reutilizado pelos dois serviços, e observabilidade — e a região e o prefixo são variáveis. Um único `terraform apply` sobe tudo do zero sem passo manual: ele mesmo faz o build e o push das imagens Docker, carrega o catálogo no DynamoDB e grava a chave do LLM no Secrets Manager, recebida como variável efêmera, que não fica no estado. Nada fica fixo: as zonas e a AMI vêm de data sources, e os nomes IAM levam a região, porque IAM é global na conta.
 >
 > Os compromissos: usamos um NAT só, que é mais barato mas é ponto único de falha de saída; t3.small, que é suficiente para o MVP; e DynamoDB sob demanda, que custa quase zero parado.
 
