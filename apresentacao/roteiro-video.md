@@ -7,20 +7,31 @@ Duração-alvo: **13 min 30 s** (mínimo 10, máximo 15). Uma pessoa por etapa, 
 | 1. Startup e proposta de valor | **Felipe Suarez** | 1:30 | PPT, slides 1 a 4 |
 | 2. Demonstração real | **David Chung** | 2:00 | Slide 5 e depois a página da aplicação no navegador |
 | 3. Diagrama de arquitetura | **Luiz Pinheiro** | 2:00 | PPT, slides 6 a 8 |
-| 4. Navegação pelo Console AWS | **Lenny Wajcberg** (narra) + **Felipe** (compartilha o console) | 2:30 | Slide 9 e depois o console AWS em **sa-east-1** |
+| 4. Navegação pelo Console AWS | **Lenny Wajcberg** | 2:30 | Slide 9 e depois o console AWS em **sa-east-1** |
 | 5. Conceitos e decisões | **Ricardo Peano** | 3:30 | PPT, slides 10 a 15, alternando com o código no VS Code |
 | 6. Falhas e recuperação | **Fernando Mentone** | 2:00 | PPT, slides 16 a 19 |
 
 As falas abaixo são uma base: **falem com as próprias palavras**, sem ler.
 
-## Como gravar (Teams)
+O professor pode perguntar qualquer parte para qualquer pessoa, então todos devem ler o roteiro inteiro.
 
-1. **Felipe** cria a reunião no Teams com a conta do Insper; todos entram com **câmera ligada**, e o Felipe clica em **Gravar**.
-2. Na sua vez, cada pessoa clica em **Compartilhar → Janela** (não a tela inteira) e escolhe o PowerPoint em modo apresentação, o navegador ou o VS Code. Ao terminar, para de compartilhar e chama a próxima pessoa pelo nome.
-3. Todos abrem o PPT (`apresentacao/apresentacao-video.pptx`) já no slide da sua etapa antes de começar.
-4. **Na Etapa 4, o Lenny usa o próprio acesso de leitura** (usuário `lenny-wajcberg-leitura`, senha passada pelo Felipe em particular). Se der problema, o Felipe compartilha o console e clica enquanto o Lenny narra.
-5. Errou? Pare e recomece a frase ou a etapa; o trecho errado é cortado depois no Clipchamp.
-6. No fim, o Felipe para a gravação, baixa o MP4 (chat da reunião → gravação → **Download**), corta os erros e exporta em 1080p. Conferir a duração: **10 a 15 min**. O professor pode perguntar qualquer parte para qualquer pessoa, então todos devem ler o roteiro inteiro.
+## Como gravar (cada um grava a sua parte)
+
+Cada pessoa grava a própria etapa sozinha, com **câmera ligada**, e manda o MP4 para o Felipe, que junta tudo na ordem.
+
+**Ferramenta de gravação:**
+- **Só slides (Felipe, Luiz, Fernando):** no PowerPoint, **Apresentação de Slides → Gravar**, começando no primeiro slide da sua etapa. A câmera aparece no canto e as notas ficam no alto da tela, como visor. Depois, **Arquivo → Exportar → Criar um Vídeo → Full HD (1080p)**. Nos slides 1 a 4, as falas do Felipe já estão nas notas.
+- **Slides + navegador, console ou código (David, Lenny, Ricardo):** a gravação do PowerPoint só pega os slides. Use uma reunião do Teams **só com você**: entre com câmera, clique em **Gravar**, compartilhe a janela do PowerPoint e troque o compartilhamento para o navegador ou o VS Code quando o roteiro mandar. Pare a gravação no fim e baixe o MP4 no chat da reunião (gravação → **Download**). Outra opção é o OBS Studio (gratuito), com a tela e a câmera num canto.
+
+**Regras para as partes encaixarem:**
+1. Grave em **1080p** e compartilhe **só a janela** (não a tela inteira), com zoom grande (125%–150%).
+2. Comece dizendo seu nome e o tema da etapa; termine com a frase que passa para a próxima pessoa.
+3. Respeite o tempo da sua etapa (tabela acima). Errou? Pare, espere 2 s e recomece a frase; o trecho é cortado na edição.
+4. Nome do arquivo: `etapa-N-seu-nome.mp4` (ex.: `etapa-4-lenny.mp4`). Mande para o Felipe.
+5. **Etapa 2 (David):** a demo compra 3 pacotes do Etiópia, então confira antes que o estoque está em 20. Se precisar regravar, peça ao Felipe para repor o estoque.
+6. **Etapa 4 (Lenny):** use o seu acesso de leitura (usuário `lenny-wajcberg-leitura`; link e senha passados pelo Felipe em particular). Grave **depois** do David, porque o pedido mostrado no DynamoDB é o da demo dele. Não clique em "Retrieve secret value" e não abra o menu da conta no canto superior direito.
+
+**Edição (Felipe):** no Clipchamp, importe os 6 MP4, coloque na ordem das etapas, corte erros e pausas e exporte em 1080p. Conferir a duração final: **10 a 15 min**.
 
 ---
 
@@ -32,8 +43,8 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler.
 - [ ] Abrir as abas do console **antes** de gravar (lista na Etapa 4), para não perder tempo carregando.
 - [ ] Zoom do navegador em **125%–150%** e do VS Code com fonte ≥ 18. Feche notificações, e-mail e WhatsApp Web.
 - [ ] **Nunca** abrir "Retrieve secret value" no Secrets Manager nem mostrar o `.env`, o `terraform.tfvars` ou o terminal com chaves.
-- [ ] Gravar em 1080p (OBS ou Teams/Zoom gravando a tela compartilhada). Microfone perto, ambiente silencioso.
-- [ ] Ensaio: cronometrar cada etapa uma vez antes da gravação final.
+- [ ] Gravar em 1080p (PowerPoint Gravar, Teams só com você ou OBS). Microfone perto, ambiente silencioso.
+- [ ] Ensaio: cronometrar a sua etapa uma vez antes da gravação final.
 
 ---
 
@@ -120,11 +131,11 @@ As falas abaixo são uma base: **falem com as próprias palavras**, sem ler.
 
 ---
 
-## Etapa 4 — Navegação pelo Console AWS (Lenny Wajcberg narra, Felipe clica, 2:30)
+## Etapa 4 — Navegação pelo Console AWS (Lenny Wajcberg, 2:30)
 
-**Antes de gravar (Felipe):** entrar no console, trocar a região para **São Paulo (sa-east-1)** no canto superior direito e abrir **uma aba do navegador para cada linha da tabela abaixo**, já na tela indicada. Não abrir o menu da conta (canto superior direito), para o ID da conta não aparecer.
+**Antes de gravar (Lenny):** entrar no console com o seu usuário de leitura, trocar a região para **São Paulo (sa-east-1)** no canto superior direito e abrir **uma aba do navegador para cada linha da tabela abaixo**, já na tela indicada. Não abrir o menu da conta (canto superior direito), para o ID da conta não aparecer.
 
-**Passo a passo na tela:** o Lenny mostra o **slide 9** por 10 s ("vamos ver cada um desses recursos no console") e o Felipe passa a compartilhar o navegador. A cada aba, o Lenny diz a frase da última coluna enquanto o Felipe aponta com o mouse o que está na coluna "O que mostrar" (~10 s por aba).
+**Passo a passo na tela:** mostre o **slide 9** por 10 s ("vamos ver cada um desses recursos no console") e troque o compartilhamento para o navegador. A cada aba, aponte com o mouse o que está na coluna "O que mostrar" enquanto diz a frase da última coluna (~10 s por aba). Se o acesso falhar, avise o Felipe: ele grava a navegação e você narra por cima.
 
 | # | Onde clicar | O que mostrar | O que falar (curto) |
 |---|---|---|---|

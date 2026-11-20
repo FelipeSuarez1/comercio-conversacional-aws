@@ -50,13 +50,13 @@ Requisitos do PDF de entrega ("Instruções de Entrega — Vídeo do Projeto Fin
 | 1. Startup e proposta de valor | Felipe Suarez | 1:30 | 1–4 |
 | 2. Demonstração real | David Chung | 2:00 | 5 + navegador |
 | 3. Diagrama de arquitetura | Luiz Pinheiro | 2:00 | 6–8 |
-| 4. Console AWS | Lenny Wajcberg (narra) + Felipe (compartilha o console) | 2:30 | 9 + console |
+| 4. Console AWS | Lenny Wajcberg (com o próprio usuário de leitura) | 2:30 | 9 + console |
 | 5. Conceitos e decisões | Ricardo Peano | 3:30 | 10–15 + VS Code |
 | 6. Falhas e recuperação de desastres | Fernando Mentone | 2:00 | 16–19 |
 
-Tudo o que cada um fala e mostra está no [roteiro](apresentacao/roteiro-video.md), incluindo a seção "Como gravar (Teams)".
+Tudo o que cada um fala e mostra está no [roteiro](apresentacao/roteiro-video.md), incluindo a seção "Como gravar (cada um grava a sua parte)".
 
-**Gravação:** reunião no Teams com conta do Insper, câmeras ligadas, cada um compartilha a própria janela na sua vez. O Teams salva em MP4 (chat da reunião → gravação → Download, de preferência por quem iniciou a gravação). Para cortar e juntar: Clipchamp (vem no Windows 11), exportar em 1080p.
+**Gravação:** cada um grava a própria etapa separado, com câmera ligada. Partes só de slides: PowerPoint → Gravar → exportar vídeo 1080p. Partes com navegador, console ou VS Code: reunião do Teams só com a pessoa (ou OBS). Arquivos `etapa-N-nome.mp4` vão para o Felipe, que junta na ordem no Clipchamp (vem no Windows 11) e exporta em 1080p. O Lenny grava depois do David (mostra o pedido da demo no DynamoDB).
 
 **Demo (Etapa 2), mensagens exatas:**
 1. `Oi! Gosto de café frutado e faço no coado. O que você recomenda?`
