@@ -13,12 +13,12 @@ Itens marcados com **[B]** nas fases ficam para a segunda rodada.
 | Interface | Swagger do FastAPI (`/docs`) para conversar | Página HTML simples |
 | Tools | `buscar_produtos`, `criar_pedido` | + `consultar_estoque`, `consultar_pedido` |
 | Worker | Consome a fila, baixa o estoque com escrita condicional (idempotente, estoque nunca negativo), heartbeat no health check; DLQ configurada na fila | Já entregue na versão C: era barato fazer certo desde o início |
-| Escala de tasks | `chat-api` por **CPU** (60%); `order-worker` por mensagens na fila por task (trocado de CPU após o ensaio: a CPU do worker não sobe com fila cheia) | `chat-api` por requisições no ALB; worker com alvo menor ou step scaling para reagir mais rápido |
+| Escala de tasks | `chat-api` por **CPU** (60%); `order-worker` por mensagens na fila por task (trocado de CPU após o ensaio: a CPU do worker não sobe com fila cheia) | `chat-api` por requisições no ALB; worker com alvo menor ou step scaling para reagir mais rápido — **feito** (sa-east-1): `chat-api` com CPU 60% **e** `ALBRequestCountPerTarget` 1500 req/task/min; worker com alvo 20 mensagens/task e scale-out em 30 s (variáveis no `terraform.tfvars`, ver [terraform.md](terraform.md#escala-das-tasks)) |
 | Escala de instâncias | Capacity Provider com managed scaling | Igual, + managed draining e scale-in protection ajustados e demonstrados |
 | Logs | `awslogs`, texto simples | JSON com `conversa_id` / `pedido_id` (correlação) |
-| Alarmes | Um alarme por item exigido (tasks, cluster, ASG, ALB, fila, erros), ação em tópico SNS sem assinatura de e-mail (decisão do grupo) | Assinatura de e-mail e limiares calibrados com teste de carga |
-| IAM | 3 tipos de role separados (instância, execução, tarefa), políticas por serviço | Políticas restritas a cada tabela, fila e segredo |
-| Imagens no Terraform | `build-and-push` rodado antes do `apply` | Build e push disparados pelo próprio `apply` |
+| Alarmes | Um alarme por item exigido (tasks, cluster, ASG, ALB, fila, erros), ação em tópico SNS sem assinatura de e-mail (decisão do grupo) | Assinatura de e-mail e limiares calibrados com teste de carga — **feito** (sa-east-1): `email_alertas` cria a assinatura no Terraform; limiares recalibrados com [evidencias.md](evidencias.md), justificativa por alarme em [terraform.md](terraform.md#alarmes) |
+| IAM | 3 tipos de role separados (instância, execução, tarefa), políticas por serviço | Políticas restritas a cada tabela, fila e segredo — **feito** (sa-east-1): task roles por ARN; execução com política própria (ECR só nos 2 repositórios, logs só em `/ecs/<prefixo>/*`, só o segredo do LLM); `*` só em `ecr:GetAuthorizationToken` e nas gerenciadas da role da instância |
+| Imagens no Terraform | ~~`build-and-push` rodado antes do `apply`~~ | Build e push disparados pelo próprio `apply` — **feito**: o enunciado exige Terraform sem intervenção manual, então deixou de ser upgrade |
 | Terraform | Um só ambiente em `envs/sa-east-1`, poucas variáveis | Módulos reutilizáveis e parametrização completa |
 
 ## Fase 0 — Preparação
@@ -86,9 +86,10 @@ infra/
   bootstrap/        # bucket S3 do estado (aplicado uma vez)
   modules/
     network/        # VPC, sub-redes, rotas, NAT, endpoints, SGs
-    data/           # DynamoDB, SQS + DLQ, Secrets Manager (só o recipiente)
+    data/           # DynamoDB + catálogo inicial, SQS + DLQ, Secrets Manager (com valor write-only)
     alb/            # ALB, target group, listener
     cluster/        # ECR, cluster, Launch Template, ASG, Capacity Provider, IAM
+    images/         # build e push das imagens (provider docker)
     service/        # task definition, serviço, auto scaling, logs (reutilizado 2x)
     observability/  # alarmes, SNS
   envs/sa-east-1/   # main.tf, backend.tf, terraform.tfvars
@@ -99,9 +100,10 @@ infra/
 - [x] Módulos `network`, `alb`, `data`, `cluster`, `service` (usado 2x) e `observability`; ambiente em `envs/sa-east-1`.
 - [x] Região, CIDRs, tipo de instância, limites do ASG e tags como variáveis (limites das tasks ficam fixos em `envs/sa-east-1/main.tf`).
 - [x] AZs via `data "aws_availability_zones"`; AMI via `data "aws_ssm_parameter"`.
-- [x] Valor do segredo fora do Terraform: `put-secret-value` documentado em [terraform.md](terraform.md).
+- [x] Valor do segredo gravado pelo próprio Terraform como atributo write-only (`secret_string_wo`, não vai para o state); chave por `TF_VAR_llm_api_key`, placeholder no modo fake. Substitui o `put-secret-value` manual.
+- [x] Catálogo inicial como `aws_dynamodb_table_item` (mesmos dados do `scripts/seed.py`, `ignore_changes` para não desfazer a baixa de estoque). Substitui rodar o seed depois do `apply`.
 - [x] `apply` em `sa-east-1` com a aplicação no ar e `scripts/smoke-test.sh` passando contra o ALB. Relação de recursos em [sa-east-1-recursos.md](sa-east-1-recursos.md).
-- [ ] Imagens: `terraform_data` com `local-exec` chamando o `build-and-push`, e os serviços dependendo dele — assim um único `apply` sobe tudo **[B]**.
+- [x] Imagens: módulo `images` com o provider `kreuzwerker/docker` (`docker_image` + `docker_registry_image`, tag = hash do código), e os serviços dependendo do push — um único `apply` sobe tudo, sem `-target`. Era **[B]**; passou a obrigatório porque o enunciado exige que o Terraform crie a infraestrutura completa sem nenhuma intervenção manual.
 - [ ] `force_delete` nos ECRs e ordem de dependência correta entre ASG e Capacity Provider para o `destroy` funcionar de primeira (já no código; falta confirmar com um `destroy`).
 - [ ] Buscar por `us-east-2` no repositório inteiro: não pode haver nenhuma ocorrência.
 - [ ] Ciclo completo `apply` → demonstração → `destroy` → `apply` de novo, em conta limpa.

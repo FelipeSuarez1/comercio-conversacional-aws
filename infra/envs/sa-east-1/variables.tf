@@ -16,9 +16,10 @@ variable "cidr_vpc" {
   default     = "10.0.0.0/16"
 }
 
-variable "imagem_tag" {
-  description = "Tag das imagens no ECR (hash curto do commit), igual para os dois serviços."
+variable "docker_host" {
+  description = "Endereço do Docker usado no build. null = automático (named pipe do Docker Desktop no Windows; DOCKER_HOST ou socket padrão nos outros)."
   type        = string
+  default     = null
 }
 
 variable "llm_modo" {
@@ -54,6 +55,20 @@ variable "model_id" {
   }
 }
 
+variable "llm_api_key" {
+  description = "Chave do LLM (modo real). Passe só por TF_VAR_llm_api_key, nunca em arquivo; write-only, não vai para o state."
+  type        = string
+  default     = null
+  sensitive   = true
+  ephemeral   = true
+}
+
+variable "llm_api_key_versao" {
+  description = "Incremente para regravar o segredo (troca de chave). Trocar llm_modo já regrava."
+  type        = number
+  default     = 1
+}
+
 variable "log_level" {
   description = "Nível de log dos dois serviços."
   type        = string
@@ -82,4 +97,49 @@ variable "asg_desejado" {
   description = "Instâncias desejadas no ASG ao criar (depois quem manda é o capacity provider)."
   type        = number
   default     = 2
+}
+
+# ---------------------------------------------------------------- Escala das tasks
+
+variable "chat_api_cpu_alvo" {
+  description = "Alvo de CPU média (%) do target tracking do chat-api."
+  type        = number
+  default     = 60
+}
+
+variable "chat_api_requisicoes_por_task" {
+  description = "Alvo de requisições por task por minuto (ALBRequestCountPerTarget) do chat-api."
+  type        = number
+  default     = 1500
+}
+
+variable "worker_backlog_por_task" {
+  description = "Alvo de mensagens visíveis na fila por task do order-worker."
+  type        = number
+  default     = 20
+}
+
+variable "worker_cooldown_saida" {
+  description = "Cooldown de scale-out do order-worker (s)."
+  type        = number
+  default     = 30
+}
+
+variable "worker_cooldown_entrada" {
+  description = "Cooldown de scale-in do order-worker (s); mais lento que o de saída."
+  type        = number
+  default     = 120
+}
+
+# ---------------------------------------------------------------- Alertas
+
+variable "email_alertas" {
+  description = "E-mail assinado no tópico SNS de alertas. Vazio = sem assinatura. A AWS manda um e-mail de confirmação."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.email_alertas == "" || can(regex("^[^@ ]+@[^@ ]+[.][^@ ]+$", var.email_alertas))
+    error_message = "email_alertas deve ser vazio ou um endereço de e-mail."
+  }
 }

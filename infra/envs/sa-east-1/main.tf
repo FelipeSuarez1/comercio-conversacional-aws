@@ -45,7 +45,10 @@ module "alb" {
 module "data" {
   source = "../../modules/data"
 
-  prefixo = var.prefixo
+  prefixo            = var.prefixo
+  llm_modo           = var.llm_modo
+  llm_api_key        = var.llm_api_key
+  llm_api_key_versao = var.llm_api_key_versao
 }
 
 module "cluster" {
@@ -59,6 +62,22 @@ module "cluster" {
   asg_max          = var.asg_max
   asg_desejado     = var.asg_desejado
   segredo_arn      = module.data.segredo_arn
+}
+
+# Build e push das imagens no próprio apply; os serviços usam o output e só
+# são criados/atualizados depois do push.
+module "images" {
+  source = "../../modules/images"
+
+  providers = {
+    docker = docker
+  }
+
+  diretorio_app = "${path.root}/../../../app"
+  repositorios = {
+    "chat-api"     = module.cluster.ecr_chat_api_url
+    "order-worker" = module.cluster.ecr_order_worker_url
+  }
 }
 
 # Políticas das task roles (infra/ohio/politica-*-task.json), com os ARNs do módulo data
@@ -119,23 +138,28 @@ module "chat_api" {
   cluster_arn            = module.cluster.cluster_arn
   capacity_provider_nome = module.cluster.capacity_provider_nome
   execution_role_arn     = module.cluster.execution_role_arn
-  imagem                 = "${module.cluster.ecr_chat_api_url}:${var.imagem_tag}"
+  imagem                 = module.images.imagens["chat-api"]
 
   cpu             = 256
   memoria_reserva = 384
   memoria_limite  = 512
 
-  ambiente           = local.ambiente_chat_api
+  ambiente = local.ambiente_chat_api
+  # segredo_arn só fica disponível depois que o segredo tem valor (secret_version)
   segredos           = { LLM_API_KEY = module.data.segredo_arn }
   politica_task_json = data.aws_iam_policy_document.chat_api_task.json
 
   porta_container  = 8000
   target_group_arn = module.alb.target_group_arn
 
-  desejado        = 2
-  minimo          = 2
-  maximo          = 8
-  escala_cpu_alvo = 60
+  desejado = 2
+  minimo   = 2
+  maximo   = 8
+
+  # Duas políticas de target tracking: CPU média e requisições por task no ALB
+  escala_cpu_alvo           = var.chat_api_cpu_alvo
+  escala_requisicoes_alvo   = var.chat_api_requisicoes_por_task
+  escala_requisicoes_rotulo = "${module.alb.alb_arn_suffix}/${module.alb.target_group_arn_suffix}"
 
   # O serviço só pode usar o target group depois que o listener existe
   # (o output target_group_arn não depende do listener).
@@ -152,7 +176,7 @@ module "order_worker" {
   cluster_arn            = module.cluster.cluster_arn
   capacity_provider_nome = module.cluster.capacity_provider_nome
   execution_role_arn     = module.cluster.execution_role_arn
-  imagem                 = "${module.cluster.ecr_order_worker_url}:${var.imagem_tag}"
+  imagem                 = module.images.imagens["order-worker"]
 
   cpu             = 128
   memoria_reserva = 192
@@ -168,9 +192,14 @@ module "order_worker" {
   minimo   = 1
   maximo   = 4
 
-  # Backlog por task (infra/ohio/escala-worker-fila.json): mensagens visíveis / tasks rodando, alvo 100
+  # Scale-out rápido para a fila não envelhecer; scale-in continua mais lento
+  escala_cooldown_saida   = var.worker_cooldown_saida
+  escala_cooldown_entrada = var.worker_cooldown_entrada
+
+  # Backlog por task: mensagens visíveis / tasks rodando. Em Ohio o alvo era 100
+  # (infra/ohio/escala-worker-fila.json); com 20 o worker reage a filas menores.
   escala_metrica_customizada = {
-    alvo = 100
+    alvo = var.worker_backlog_por_task
     metricas = [
       {
         id           = "visiveis"
@@ -222,4 +251,5 @@ module "observability" {
   fila_nome               = module.data.fila_nome
   dlq_nome                = module.data.dlq_nome
   log_groups              = [module.chat_api.log_group_nome, module.order_worker.log_group_nome]
+  email_alertas           = var.email_alertas
 }

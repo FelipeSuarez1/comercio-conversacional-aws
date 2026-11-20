@@ -109,6 +109,30 @@ variable "escala_cpu_alvo" {
   default     = null
 }
 
+variable "escala_requisicoes_alvo" {
+  description = "Alvo de requisições por task por minuto (ALBRequestCountPerTarget); null = sem essa política"
+  type        = number
+  default     = null
+}
+
+variable "escala_requisicoes_rotulo" {
+  description = "resource_label da métrica ALBRequestCountPerTarget: \"<sufixo do ARN do ALB>/<sufixo do ARN do target group>\""
+  type        = string
+  default     = null
+}
+
+variable "escala_cooldown_saida" {
+  description = "Cooldown de scale-out (s) das políticas de target tracking"
+  type        = number
+  default     = 60
+}
+
+variable "escala_cooldown_entrada" {
+  description = "Cooldown de scale-in (s) das políticas de target tracking (mais lento que o de saída)"
+  type        = number
+  default     = 120
+}
+
 variable "escala_metrica_customizada" {
   description = <<-EOT
     Target tracking com métrica calculada; null = sem essa política. Formato:

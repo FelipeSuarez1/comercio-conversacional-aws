@@ -1,21 +1,37 @@
 # Copie para terraform.tfvars (que NÃO vai para o git) e ajuste.
+# As imagens não precisam de tag aqui: o apply faz build e push com tag = hash do código.
 
 regiao  = "sa-east-1"
 prefixo = "cafe"
 
-# Tag das imagens enviadas ao ECR (hash curto do commit: git rev-parse --short HEAD)
-imagem_tag = "<hash-do-commit>"
-
 # fake = respostas simuladas (smoke test e carga); real = chama o provedor de LLM
 llm_modo = "fake"
 
-# Obrigatórios só com llm_modo = "real". A chave NÃO entra aqui: vai direto para o
-# Secrets Manager com "aws secretsmanager put-secret-value" (ver docs/terraform.md).
+# Obrigatórios só com llm_modo = "real". A chave NÃO entra aqui nem em arquivo nenhum:
+# passe por variável de ambiente TF_VAR_llm_api_key (ver docs/terraform.md).
 llm_base_url = "https://<provedor-compativel-openai>/v1/"
 model_id     = "<id-do-modelo>"
+
+# Incremente para regravar o segredo com uma chave nova (trocar llm_modo já regrava)
+# llm_api_key_versao = 1
+
+# Endereço do Docker para o build. Padrão: named pipe do Docker Desktop no Windows;
+# DOCKER_HOST ou unix:///var/run/docker.sock nos outros sistemas.
+# docker_host = "npipe:////./pipe/docker_engine"
 
 # Capacidade (valores de Ohio)
 # tipo_instancia = "t3.small"
 # asg_min        = 2
 # asg_max        = 4
 # asg_desejado   = 2
+
+# E-mail que recebe os alarmes (assinatura no tópico SNS; confirme pelo link que a
+# AWS envia). Vazio = sem assinatura.
+# email_alertas = "<email-do-grupo>"
+
+# Escala das tasks
+# chat_api_cpu_alvo             = 60   # CPU média (%)
+# chat_api_requisicoes_por_task = 1500 # requisições por task por minuto no ALB
+# worker_backlog_por_task       = 20   # mensagens na fila por task
+# worker_cooldown_saida         = 30   # s
+# worker_cooldown_entrada       = 120  # s

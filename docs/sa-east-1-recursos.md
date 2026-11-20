@@ -2,7 +2,7 @@
 
 Etapa automatizada, criada pelo Terraform em `infra/envs/sa-east-1` (roteiro em [terraform.md](terraform.md)). É a mesma arquitetura de Ohio ([ohio-recursos.md](ohio-recursos.md)), sem dependência de lá.
 
-Lista gerada a partir do state (`terraform -chdir=infra/envs/sa-east-1 state list`) com o ambiente no ar: **74 recursos gerenciados** em 7 módulos, mais 12 data sources. Prefixo `cafe`; todos os recursos recebem as tags padrão do provider `Projeto=cafe` e `Etapa=terraform`. IDs e ARNs não são listados: saem de `terraform state show <recurso>` ou `terraform output`.
+Lista montada a partir do state (`terraform -chdir=infra/envs/sa-east-1 state list`) do ambiente no ar (74 recursos em 7 módulos) e atualizada para a versão com automação completa, escala por requisições e alarmes calibrados: **89 recursos gerenciados** em 8 módulos (90 com `email_alertas`), mais 13 data sources e 1 recurso ephemeral (token do ECR). Esses números são os esperados para o próximo `apply` do zero; confira com `state list` depois dele. Prefixo `cafe`; todos os recursos recebem as tags padrão do provider `Projeto=cafe` e `Etapa=terraform`. IDs e ARNs não são listados: saem de `terraform state show <recurso>` ou `terraform output`.
 
 Para conferir de novo (somente leitura):
 
@@ -22,6 +22,7 @@ terraform -chdir=infra/envs/sa-east-1 output
 | `fila_url` | `https://sqs.sa-east-1.amazonaws.com/<conta>/cafe-pedidos` |
 | `segredo_arn` | `arn:aws:secretsmanager:sa-east-1:<conta>:secret:cafe/llm-api-key-<sufixo>` |
 | `tabela_produtos_nome` | `cafe-produtos` |
+| `imagens` | `{ chat-api = "<conta>.dkr.ecr.sa-east-1.amazonaws.com/cafe/chat-api:<hash>", order-worker = ... }` |
 
 ## Bootstrap — `infra/bootstrap` (state local, aplicado uma vez)
 
@@ -69,7 +70,7 @@ O state do ambiente fica em `sa-east-1/terraform.tfstate` nesse bucket, com trav
 | `aws_lb_target_group.chat_api` | `cafe-chat-api-tg` | Alvos do `chat-api` (tipo `instance`, porta dinâmica), health check `GET /health`, deregistration delay 30 s |
 | `aws_lb_listener.http` | — | HTTP 80 → `cafe-chat-api-tg` |
 
-## `module.data` — dados, fila e segredo (6)
+## `module.data` — dados, catálogo, fila e segredo (17)
 
 | Recurso Terraform | Nome na AWS | Para que serve |
 |---|---|---|
@@ -78,9 +79,11 @@ O state do ambiente fica em `sa-east-1/terraform.tfstate` nesse bucket, com trav
 | `aws_dynamodb_table.conversas` | `cafe-conversas` | Histórico das conversas (`conversa_id` + `ts`), on-demand |
 | `aws_sqs_queue.pedidos` | `cafe-pedidos` | Fila de pedidos: visibility 60 s, long polling 20 s, DLQ após 3 recebimentos |
 | `aws_sqs_queue.pedidos_dlq` | `cafe-pedidos-dlq` | DLQ, retenção de 14 dias |
-| `aws_secretsmanager_secret.llm_api_key` | `cafe/llm-api-key` | Recipiente da chave do LLM; o valor é gravado fora do Terraform (`put-secret-value`) |
+| `aws_secretsmanager_secret.llm_api_key` | `cafe/llm-api-key` | Segredo da chave do LLM, sem janela de recuperação |
+| `aws_secretsmanager_secret_version.llm_api_key` | — | Valor do segredo por atributo write-only (`secret_string_wo`, de `TF_VAR_llm_api_key`; placeholder no modo fake). Não vai para o state |
+| `aws_dynamodb_table_item.produto[...]` (10) | itens de `cafe-produtos` | Catálogo inicial, os mesmos dados de `scripts/seed.py`; `ignore_changes` para não desfazer a baixa de estoque |
 
-## `module.cluster` — IAM base, ECR e capacidade (14)
+## `module.cluster` — IAM base, ECR e capacidade (13)
 
 | Recurso Terraform | Nome na AWS | Para que serve |
 |---|---|---|
@@ -88,8 +91,7 @@ O state do ambiente fica em `sa-east-1/terraform.tfstate` nesse bucket, com trav
 | `aws_iam_role_policy_attachment.instancia[...]` (2) | — | `AmazonEC2ContainerServiceforEC2Role` (agente ECS) e `AmazonSSMManagedInstanceCore` (acesso sem SSH) |
 | `aws_iam_instance_profile.instancia` | `cafe-sa-east-1-ecs-instance-profile` | Liga a role às instâncias do Launch Template |
 | `aws_iam_role.execucao` | `cafe-sa-east-1-ecs-task-execution` | Role de execução das tasks |
-| `aws_iam_role_policy_attachment.execucao` | — | `AmazonECSTaskExecutionRolePolicy` (pull no ECR, logs) |
-| `aws_iam_role_policy.ler_segredo` | `cafe-ler-segredo-llm` | Inline na role de execução: `GetSecretValue` só no segredo do LLM |
+| `aws_iam_role_policy.execucao` | `cafe-execucao-tasks` | Inline na role de execução, no lugar da `AmazonECSTaskExecutionRolePolicy`: pull só nos 2 repositórios, logs só em `/ecs/cafe/*`, `GetSecretValue` só no segredo do LLM; `*` só em `ecr:GetAuthorizationToken` |
 | `aws_ecr_repository.repo["chat-api"]` | `cafe/chat-api` | Imagens do `chat-api` (scan on push, `force_delete`) |
 | `aws_ecr_repository.repo["order-worker"]` | `cafe/order-worker` | Imagens do `order-worker` (scan on push, `force_delete`) |
 | `aws_ecs_cluster.this` | `cafe-cluster` | Cluster ECS com Container Insights ligado |
@@ -100,7 +102,14 @@ O state do ambiente fica em `sa-east-1/terraform.tfstate` nesse bucket, com trav
 
 As roles levam a região no nome (`cafe-sa-east-1-...`) porque IAM é global na conta e as roles de Ohio usam `cafe-...`.
 
-## `module.chat_api` — serviço `chat-api` (7)
+## `module.images` — build e push das imagens (4)
+
+| Recurso Terraform | Nome | Para que serve |
+|---|---|---|
+| `docker_image.this["chat-api"]` / `["order-worker"]` | `<repo ECR>:<hash>` (imagem local) | Build de `app/<serviço>` para `linux/amd64`; tag = 12 primeiros caracteres do hash dos arquivos do contexto (fim de linha normalizado) |
+| `docker_registry_image.this["chat-api"]` / `["order-worker"]` | `cafe/<serviço>:<hash>` no ECR | Push para o ECR (login pelo token ephemeral `aws_ecr_authorization_token`); os serviços usam esse output e só são criados depois do push |
+
+## `module.chat_api` — serviço `chat-api` (8)
 
 | Recurso Terraform | Nome na AWS | Para que serve |
 |---|---|---|
@@ -110,7 +119,8 @@ As roles levam a região no nome (`cafe-sa-east-1-...`) porque IAM é global na 
 | `aws_ecs_task_definition.this` | `cafe-chat-api` | `bridge`, porta 8000 → dinâmica, CPU 256, memória 384/512 MiB, `LLM_API_KEY` do Secrets Manager |
 | `aws_ecs_service.this` | `cafe-chat-api` | Serviço no `cafe-cp` ligado ao target group; spread por AZ + binpack por memória; deploy 100/200 com circuit breaker |
 | `aws_appautoscaling_target.this` | `service/cafe-cluster/cafe-chat-api` | Limites de 2 a 8 tasks |
-| `aws_appautoscaling_policy.cpu[0]` | `cafe-chat-api-cpu60` | Target tracking em CPU média de 60% |
+| `aws_appautoscaling_policy.cpu[0]` | `cafe-chat-api-cpu60` | Target tracking em CPU média de 60% (`chat_api_cpu_alvo`) |
+| `aws_appautoscaling_policy.requisicoes[0]` | `cafe-chat-api-req1500` | Target tracking em `ALBRequestCountPerTarget`, 1500 req/task/min (`chat_api_requisicoes_por_task`) |
 
 ## `module.order_worker` — serviço `order-worker` (7)
 
@@ -122,23 +132,24 @@ As roles levam a região no nome (`cafe-sa-east-1-...`) porque IAM é global na 
 | `aws_ecs_task_definition.this` | `cafe-order-worker` | `bridge`, sem porta, CPU 128, memória 192/256 MiB, health check `python healthcheck.py` |
 | `aws_ecs_service.this` | `cafe-order-worker` | Serviço no `cafe-cp`; mesmo posicionamento e deploy do `chat-api` |
 | `aws_appautoscaling_target.this` | `service/cafe-cluster/cafe-order-worker` | Limites de 1 a 4 tasks |
-| `aws_appautoscaling_policy.metrica[0]` | `cafe-order-worker-metrica` | Target tracking em mensagens visíveis na fila por task (`visiveis / tasks`), alvo 100 |
+| `aws_appautoscaling_policy.metrica[0]` | `cafe-order-worker-metrica` | Target tracking em mensagens visíveis na fila por task (`visiveis / tasks`), alvo 20 (`worker_backlog_por_task`), cooldown 30 s para sair e 120 s para entrar |
 
-## `module.observability` — alarmes e notificação (13)
+## `module.observability` — alarmes e notificação (13, ou 14 com e-mail)
 
 | Recurso Terraform | Nome na AWS | Para que serve |
 |---|---|---|
-| `aws_sns_topic.alertas` | `cafe-alertas` | Destino dos 10 alarmes (sem assinatura de e-mail no Terraform) |
-| `aws_cloudwatch_metric_alarm.tasks_abaixo["cafe-chat-api"]` | `cafe-chat-api-tasks-abaixo` | `DesiredTaskCount - RunningTaskCount > 0` por 3 min |
+| `aws_sns_topic.alertas` | `cafe-alertas` | Destino dos 10 alarmes |
+| `aws_sns_topic_subscription.email[0]` | — | Só com `email_alertas` definido: assinatura de e-mail (confirmar pelo link enviado) |
+| `aws_cloudwatch_metric_alarm.tasks_abaixo["cafe-chat-api"]` | `cafe-chat-api-tasks-abaixo` | `DesiredTaskCount - RunningTaskCount > 0` por 5 min |
 | `aws_cloudwatch_metric_alarm.tasks_abaixo["cafe-order-worker"]` | `cafe-order-worker-tasks-abaixo` | Idem, para o worker |
 | `aws_cloudwatch_metric_alarm.cluster_reserva["CPUReservation"]` | `cafe-cluster-CPUReservation-alta` | Reserva de CPU do cluster > 85% por 5 min |
 | `aws_cloudwatch_metric_alarm.cluster_reserva["MemoryReservation"]` | `cafe-cluster-MemoryReservation-alta` | Reserva de memória do cluster > 85% por 5 min |
-| `aws_cloudwatch_metric_alarm.asg_instancias_abaixo` | `cafe-asg-instancias-abaixo` | `GroupInServiceInstances` < 2 |
-| `aws_cloudwatch_metric_alarm.alb_5xx` | `cafe-alb-5xx` | 5 ou mais `HTTPCode_Target_5XX_Count` em 1 min |
-| `aws_cloudwatch_metric_alarm.tg_hosts_nao_saudaveis` | `cafe-tg-hosts-nao-saudaveis` | `UnHealthyHostCount` > 0 |
-| `aws_cloudwatch_metric_alarm.fila_mensagem_antiga` | `cafe-fila-mensagem-antiga` | Mensagem mais antiga da fila > 5 min |
+| `aws_cloudwatch_metric_alarm.asg_instancias_abaixo` | `cafe-asg-instancias-abaixo` | `GroupInServiceInstances` < 2 por 3 min |
+| `aws_cloudwatch_metric_alarm.alb_5xx` | `cafe-alb-5xx` | 5XX (tasks + ALB) > 1% das respostas por 2 min, com pelo menos 20 req/min |
+| `aws_cloudwatch_metric_alarm.tg_hosts_nao_saudaveis` | `cafe-tg-hosts-nao-saudaveis` | `UnHealthyHostCount` > 0 por 3 min |
+| `aws_cloudwatch_metric_alarm.fila_mensagem_antiga` | `cafe-fila-mensagem-antiga` | Mensagem mais antiga da fila > 10 min por 2 min |
 | `aws_cloudwatch_metric_alarm.dlq_com_mensagens` | `cafe-dlq-com-mensagens` | DLQ com mensagem visível |
-| `aws_cloudwatch_log_metric_filter.erros["/ecs/cafe/chat-api"]` | `cafe-chat-api-erros` | Conta linhas com `ERROR` no log do `chat-api` (métrica `Cafe/ErrosNoLog`) |
+| `aws_cloudwatch_log_metric_filter.erros["/ecs/cafe/chat-api"]` | `cafe-chat-api-erros` | Conta linhas com `ERROR` ou `CRITICAL` (padrão `?ERROR ?CRITICAL`, vale para texto e JSON) no log do `chat-api` (métrica `Cafe/ErrosNoLog`) |
 | `aws_cloudwatch_log_metric_filter.erros["/ecs/cafe/order-worker"]` | `cafe-order-worker-erros` | Idem, no log do `order-worker` |
 | `aws_cloudwatch_metric_alarm.erros_no_log` | `cafe-erros-no-log` | Soma de `Cafe/ErrosNoLog` > 0 em 1 min |
 
@@ -152,7 +163,9 @@ As roles levam a região no nome (`cafe-sa-east-1-...`) porque IAM é global na 
 | `module.network.data.aws_region.atual` / `module.cluster.data.aws_region.atual` | Região atual (nomes dos endpoints e das roles) |
 | `module.cluster.data.aws_ssm_parameter.ami_ecs` | AMI ECS-optimized AL2023 recomendada para a região |
 | `module.cluster.data.aws_default_tags.atual` | Repassa as tags padrão para instâncias e volumes |
-| `module.cluster.data.aws_iam_policy_document.*` (3), `module.chat_api/order_worker.data.aws_iam_policy_document.confianca_ecs_tasks` (2) | Políticas de confiança (EC2, ECS tasks) e leitura do segredo |
+| `module.cluster.data.aws_iam_policy_document.*` (3), `module.chat_api/order_worker.data.aws_iam_policy_document.confianca_ecs_tasks` (2) | Políticas de confiança (EC2, ECS tasks) e da role de execução |
+| `module.cluster.data.aws_caller_identity.atual` | ID da conta no ARN dos log groups da política de execução (nada fixo no código) |
+| `ephemeral.aws_ecr_authorization_token.this` (ephemeral, fora do state) | Login do provider `docker` no ECR a cada plan/apply |
 
 ## Criados automaticamente pela AWS (fora do state)
 
@@ -165,6 +178,7 @@ As roles levam a região no nome (`cafe-sa-east-1-...`) porque IAM é global na 
 | Interfaces de rede do ALB e do NAT | ELB e EC2 | Liberadas ao apagar ALB/NAT |
 | Service-linked roles (ECS, Auto Scaling, Application Auto Scaling, ELB) | Cada serviço, no primeiro uso | Já existiam na conta desde Ohio; não precisam ser apagadas |
 | Log group `/aws/ecs/containerinsights/cafe-cluster/performance` | Container Insights | Não é apagado pelo `destroy`; remover à mão |
-| Valor do segredo `cafe/llm-api-key` | `aws secretsmanager put-secret-value` (passo 3.3 do [terraform.md](terraform.md)) | Nunca passa pelo Terraform nem pelo state |
-| Itens do catálogo em `cafe-produtos` | `scripts/seed.py` (passo 3.4) | Rodar de novo reseta o estoque |
-| Imagens `cafe/chat-api:<tag>` e `cafe/order-worker:<tag>` | `docker build` + `docker push` (passo 3.2) | Apagadas com os repositórios (`force_delete`) |
+| Imagens antigas no ECR (tags de versões anteriores do código) | `keep_remotely` do `docker_registry_image` | Ficam para rollback do ECS; apagadas com os repositórios (`force_delete`) |
+| Imagens locais `<conta>.dkr.ecr.sa-east-1.amazonaws.com/cafe/*` | `keep_locally` do `docker_image` | Ficam no Docker da máquina que rodou o `apply` |
+
+> Na pilha que estava no ar antes desta versão, o valor do segredo (`put-secret-value`) e os itens do catálogo (`scripts/seed.py`) foram gravados fora do Terraform. Não precisam de `import`: o `destroy` apaga a tabela e o segredo, e o `apply` seguinte cria os dois pelo Terraform ([terraform.md](terraform.md#recriar-do-zero-o-ambiente-que-já-existe)).
